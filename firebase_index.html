@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialHub - Real Firebase Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #0a0a0a;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        
+        .post-card {
+            transition: all 0.3s ease;
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+        
+        .glass-card {
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .online-indicator {
+            background: #10b981;
+            border: 2px solid #1a1a1a;
+        }
+        
+        .away-indicator {
+            background: #f59e0b;
+            border: 2px solid #1a1a1a;
+        }
+        
+        .offline-indicator {
+            background: #6b7280;
+            border: 2px solid #1a1a1a;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: white;
+            z-index: 1001;
+            backdrop-filter: blur(20px);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="loading mx-auto mb-4"></div>
+            <h2 class="text-xl font-semibold mb-2">Connecting to Firebase...</h2>
+            <p class="text-gray-400">Setting up real-time features</p>
+        </div>
+    </div>
+    
+    <!-- Authentication Modal -->
+    <div id="authModal" class="modal active">
+        <div class="glass-card rounded-xl p-8 w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center">Join SocialHub</h2>
+            <div id="authContent">
+                <div class="space-y-4">
+                    <input type="email" id="emailInput" placeholder="Email" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    <input type="password" id="passwordInput" placeholder="Password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    <input type="text" id="displayNameInput" placeholder="Your Name" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    <button id="signUpBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors">Sign Up</button>
+                    <button id="signInBtn" class="w-full bg-gray-700 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors">Sign In</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until authenticated) -->
+    <div id="mainApp" style="display: none;">
+        <!-- Navigation -->
+        <nav class="glass-card fixed w-full top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SocialHub</h1>
+                        <span class="ml-3 text-sm text-green-400">🟢 LIVE</span>
+                    </div>
+                    
+                    <div class="flex items-center space-x-6">
+                        <div id="onlineUsersCount" class="text-sm text-gray-400">
+                            <span class="text-green-400">●</span> <span id="userCount">0</span> online
+                        </div>
+                        
+                        <div class="flex items-center space-x-3">
+                            <img id="currentUserAvatar" src="" alt="Profile" class="w-8 h-8 rounded-full">
+                            <div>
+                                <span id="currentUserName" class="font-medium text-gray-300"></span>
+                                <div class="text-xs text-green-400">Online</div>
+                            </div>
+                            <button id="signOutBtn" class="text-red-400 hover:text-red-300 text-sm">Sign Out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="pt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
+                <!-- Left Sidebar -->
+                <div class="lg:col-span-1">
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <div class="text-center">
+                            <img id="profileAvatar" src="" alt="Profile" class="w-20 h-20 rounded-full mx-auto mb-4">
+                            <h3 id="profileName" class="font-semibold text-white"></h3>
+                            <p id="profileEmail" class="text-gray-400 text-sm"></p>
+                            <div class="flex justify-center space-x-4 mt-4 text-sm">
+                                <div class="text-center">
+                                    <div id="myPostsCount" class="font-semibold text-white">0</div>
+                                    <div class="text-gray-400">Posts</div>
+                                </div>
+                                <div class="text-center">
+                                    <div id="totalLikesCount" class="font-semibold text-white">0</div>
+                                    <div class="text-gray-400">Likes</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Online Users -->
+                    <div class="glass-card rounded-xl p-6">
+                        <h4 class="font-semibold text-white mb-4">Online Users</h4>
+                        <div id="onlineUsersList" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <!-- Main Feed -->
+                <div class="lg:col-span-2">
+                    <!-- Create Post -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <img id="postCreatorAvatar" src="" alt="Profile" class="w-10 h-10 rounded-full">
+                            <textarea id="postInput" placeholder="What's happening? Share with everyone online!" rows="3" class="flex-1 bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400 resize-none"></textarea>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-400">
+                                Post will be visible to all <span id="activeUsers">0</span> online users
+                            </div>
+                            <button id="createPostBtn" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">
+                                Post Live
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Posts Feed -->
+                    <div id="postsContainer" class="space-y-6">
+                        <div class="text-center text-gray-500 py-12">
+                            <div class="loading mx-auto mb-4"></div>
+                            <h3 class="text-xl font-semibold mb-2">Loading live posts...</h3>
+                            <p>Connecting to real-time database</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Sidebar -->
+                <div class="lg:col-span-1">
+                    <!-- Live Activity -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <h4 class="font-semibold text-white mb-4">Live Activity</h4>
+                        <div id="liveActivity" class="space-y-3 text-sm"></div>
+                    </div>
+
+                    <!-- Recent Posts Stats -->
+                    <div class="glass-card rounded-xl p-6">
+                        <h4 class="font-semibold text-white mb-4">Live Stats</h4>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Total Posts:</span>
+                                <span id="totalPostsCount" class="text-white">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Active Users:</span>
+                                <span id="activeUsersCount" class="text-green-400">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Posts Today:</span>
+                                <span id="todayPostsCount" class="text-blue-400">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration - YOU NEED TO REPLACE THIS WITH YOUR CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyAEWurFdnvGdsbJUYCXAncijOxvgE-y2R4",
+  authDomain: "socialhub-app-38104.firebaseapp.com",
+  databaseURL: "https://socialhub-app-38104-default-rtdb.firebaseio.com",
+  projectId: "socialhub-app-38104",
+  storageBucket: "socialhub-app-38104.firebasestorage.app",
+  messagingSenderId: "740180240359",
+  appId: "1:740180240359:web:48ffeb2760c4cff88d3f42",
+  measurementId: "G-8DT3WVGV24"
+};
+
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const realtimeDb = firebase.database();
+
+        class RealSocialHub {
+            constructor() {
+                this.currentUser = null;
+                this.unsubscribes = [];
+                this.presenceRef = null;
+                this.init();
+            }
+
+            async init() {
+                // Hide loading screen after Firebase init
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                }, 1000);
+
+                this.setupAuthListeners();
+                this.setupEventListeners();
+            }
+
+            setupAuthListeners() {
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        this.currentUser = user;
+                        await this.initializeUser();
+                        this.showMainApp();
+                        this.setupPresence();
+                        this.startRealtimeListeners();
+                    } else {
+                        this.currentUser = null;
+                        this.showAuthModal();
+                        this.cleanup();
+                    }
+                });
+            }
+
+            async initializeUser() {
+                const userRef = db.collection('users').doc(this.currentUser.uid);
+                
+                // Create or update user document
+                await userRef.set({
+                    uid: this.currentUser.uid,
+                    email: this.currentUser.email,
+                    displayName: this.currentUser.displayName || 'Anonymous',
+                    photoURL: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName || 'A'),
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+                    isOnline: true,
+                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                // Update UI
+                document.getElementById('currentUserName').textContent = this.currentUser.displayName;
+                document.getElementById('currentUserAvatar').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
+                document.getElementById('profileName').textContent = this.currentUser.displayName;
+                document.getElementById('profileEmail').textContent = this.currentUser.email;
+                document.getElementById('profileAvatar').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
+                document.getElementById('postCreatorAvatar').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
+            }
+
+            setupPresence() {
+                // Real-time presence using Firebase Realtime Database
+                this.presenceRef = realtimeDb.ref(`presence/${this.currentUser.uid}`);
+                
+                // Set user online
+                this.presenceRef.set({
+                    uid: this.currentUser.uid,
+                    displayName: this.currentUser.displayName,
+                    photoURL: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    isOnline: true
+                });
+
+                // Remove presence when user disconnects
+                this.presenceRef.onDisconnect().remove();
+
+                // Listen to all online users
+                realtimeDb.ref('presence').on('value', (snapshot) => {
+                    const onlineUsers = snapshot.val() || {};
+                    this.updateOnlineUsersList(onlineUsers);
+                });
+            }
+
+            updateOnlineUsersList(onlineUsers) {
+                const container = document.getElementById('onlineUsersList');
+                const userCount = Object.keys(onlineUsers).length;
+                
+                document.getElementById('userCount').textContent = userCount;
+                document.getElementById('activeUsers').textContent = userCount;
+                document.getElementById('activeUsersCount').textContent = userCount;
+
+                const usersList = Object.values(onlineUsers)
+                    .filter(user => user.uid !== this.currentUser.uid)
+                    .map(user => `
+                        <div class="flex items-center space-x-3 p-2 rounded-lg bg-gray-800/50">
+                            <div class="relative">
+                                <img src="${user.photoURL}" alt="${user.displayName}" class="w-8 h-8 rounded-full">
+                                <div class="online-indicator absolute -bottom-1 -right-1 w-3 h-3 rounded-full"></div>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-white">${user.displayName}</p>
+                                <p class="text-xs text-green-400">Online now</p>
+                            </div>
+                        </div>
+                    `).join('');
+
+                if (usersList) {
+                    container.innerHTML = usersList;
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-500 py-4">
+                            <p class="text-sm">You're the only one online</p>
+                            <p class="text-xs">Share the app to see friends!</p>
+                        </div>
+                    `;
+                }
+            }
+
+            startRealtimeListeners() {
+                // Listen to posts in real-time
+                const postsRef = db.collection('posts').orderBy('timestamp', 'desc').limit(50);
+                this.unsubscribes.push(
+                    postsRef.onSnapshot((snapshot) => {
+                        this.renderPosts(snapshot.docs);
+                        this.updateStats();
+                    })
+                );
+
+                // Listen to activity
+                const activityRef = db.collection('activity').orderBy('timestamp', 'desc').limit(20);
+                this.unsubscribes.push(
+                    activityRef.onSnapshot((snapshot) => {
+                        this.renderActivity(snapshot.docs);
+                    })
+                );
+            }
+
+            async createPost() {
+                const input = document.getElementById('postInput');
+                const content = input.value.trim();
+
+                if (!content) {
+                    this.showToast('⚠️ Please write something!');
+                    return;
+                }
+
+                try {
+                    // Add post to Firestore
+                    await db.collection('posts').add({
+                        uid: this.currentUser.uid,
+                        author: this.currentUser.displayName,
+                        authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                        content: content,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        likes: [],
+                        likeCount: 0,
+                        comments: []
+                    });
+
+                    // Add activity
+                    await db.collection('activity').add({
+                        uid: this.currentUser.uid,
+                        action: `${this.currentUser.displayName} posted: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    input.value = '';
+                    this.showToast('✅ Posted live to all users!');
+                } catch (error) {
+                    console.error('Error creating post:', error);
+                    this.showToast('❌ Error posting. Try again.');
+                }
+            }
+
+            async toggleLike(postId) {
+                try {
+                    const postRef = db.collection('posts').doc(postId);
+                    const post = await postRef.get();
+                    
+                    if (post.exists) {
+                        const postData = post.data();
+                        const likes = postData.likes || [];
+                        const userIndex = likes.indexOf(this.currentUser.uid);
+                        
+                        if (userIndex === -1) {
+                            // Add like
+                            await postRef.update({
+                                likes: firebase.firestore.FieldValue.arrayUnion(this.currentUser.uid),
+                                likeCount: firebase.firestore.FieldValue.increment(1)
+                            });
+                        } else {
+                            // Remove like
+                            await postRef.update({
+                                likes: firebase.firestore.FieldValue.arrayRemove(this.currentUser.uid),
+                                likeCount: firebase.firestore.FieldValue.increment(-1)
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error toggling like:', error);
+                }
+            }
+
+            renderPosts(postDocs) {
+                const container = document.getElementById('postsContainer');
+                
+                if (postDocs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-500 py-12">
+                            <h3 class="text-xl font-semibold mb-2">No posts yet</h3>
+                            <p>Be the first to post something!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = postDocs.map(doc => {
+                    const post = doc.data();
+                    const postId = doc.id;
+                    const timestamp = post.timestamp?.toDate() || new Date();
+                    const timeAgo = this.getTimeAgo(timestamp);
+                    const isLiked = post.likes?.includes(this.currentUser.uid);
+                    const isMyPost = post.uid === this.currentUser.uid;
+
+                    return `
+                        <div class="post-card rounded-xl">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <img src="${post.authorPhoto}" alt="${post.author}" class="w-10 h-10 rounded-full">
+                                        <div>
+                                            <h4 class="font-semibold text-white">${post.author} ${isMyPost ? '(You)' : ''}</h4>
+                                            <p class="text-gray-400 text-sm">${timeAgo}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-xs text-green-400">🟢 LIVE</div>
+                                </div>
+                                
+                                <p class="text-gray-300 mb-4">${post.content}</p>
+                                
+                                <div class="flex items-center justify-between">
+                                    <button class="like-btn flex items-center space-x-2 ${isLiked ? 'text-red-400' : 'text-gray-400'} hover:text-red-300 transition-colors" 
+                                            onclick="socialHub.toggleLike('${postId}')">
+                                        <svg class="w-5 h-5" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                        </svg>
+                                        <span>${post.likeCount || 0} ${post.likeCount === 1 ? 'like' : 'likes'}</span>
+                                    </button>
+                                    
+                                    <div class="text-sm text-gray-500">
+                                        Posted to ${document.getElementById('userCount').textContent} online users
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderActivity(activityDocs) {
+                const container = document.getElementById('liveActivity');
+                
+                if (activityDocs.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-sm">No recent activity</div>';
+                    return;
+                }
+
+                container.innerHTML = activityDocs.map(doc => {
+                    const activity = doc.data();
+                    const timestamp = activity.timestamp?.toDate() || new Date();
+                    const timeAgo = this.getTimeAgo(timestamp);
+
+                    return `
+                        <div class="flex items-start space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full mt-2 animate-pulse"></div>
+                            <div class="flex-1">
+                                <p class="text-gray-300 text-sm">${activity.action}</p>
+                                <p class="text-xs text-gray-500">${timeAgo}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            async updateStats() {
+                try {
+                    // Count total posts
+                    const postsSnapshot = await db.collection('posts').get();
+                    document.getElementById('totalPostsCount').textContent = postsSnapshot.size;
+
+                    // Count user's posts
+                    const userPostsSnapshot = await db.collection('posts').where('uid', '==', this.currentUser.uid).get();
+                    document.getElementById('myPostsCount').textContent = userPostsSnapshot.size;
+
+                    // Count total likes received
+                    let totalLikes = 0;
+                    userPostsSnapshot.docs.forEach(doc => {
+                        totalLikes += doc.data().likeCount || 0;
+                    });
+                    document.getElementById('totalLikesCount').textContent = totalLikes;
+
+                    // Count today's posts
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const todayPostsSnapshot = await db.collection('posts')
+                        .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(today))
+                        .get();
+                    document.getElementById('todayPostsCount').textContent = todayPostsSnapshot.size;
+                } catch (error) {
+                    console.error('Error updating stats:', error);
+                }
+            }
+
+            // Authentication methods
+            async signUp() {
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
+                const displayName = document.getElementById('displayNameInput').value;
+
+                if (!email || !password || !displayName) {
+                    this.showToast('⚠️ Please fill all fields');
+                    return;
+                }
+
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({
+                        displayName: displayName,
+                        photoURL: this.generateAvatar(displayName)
+                    });
+                    this.showToast('✅ Account created successfully!');
+                } catch (error) {
+                    this.showToast(`❌ ${error.message}`);
+                }
+            }
+
+            async signIn() {
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
+
+                if (!email || !password) {
+                    this.showToast('⚠️ Please enter email and password');
+                    return;
+                }
+
+                try {
+                    await auth.signInWithEmailAndPassword(email, password);
+                    this.showToast('✅ Signed in successfully!');
+                } catch (error) {
+                    this.showToast(`❌ ${error.message}`);
+                }
+            }
+
+            async signOut() {
+                try {
+                    await auth.signOut();
+                    this.showToast('👋 Signed out');
+                } catch (error) {
+                    console.error('Error signing out:', error);
+                }
+            }
+
+            // UI Helper methods
+            showMainApp() {
+                document.getElementById('authModal').classList.remove('active');
+                document.getElementById('mainApp').style.display = 'block';
+            }
+
+            showAuthModal() {
+                document.getElementById('authModal').classList.add('active');
+                document.getElementById('mainApp').style.display = 'none';
+            }
+
+            generateAvatar(name) {
+                const firstLetter = (name || 'A').charAt(0).toUpperCase();
+                const colors = ['6366f1', 'ef4444', '10b981', 'f59e0b', '8b5cf6', 'ec4899'];
+                const color = colors[name.length % colors.length];
+                return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%23${color}'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-family='Arial' font-size='16' font-weight='bold'%3E${firstLetter}%3C/text%3E%3C/svg%3E`;
+            }
+
+            getTimeAgo(date) {
+                const now = new Date();
+                const diff = now - date;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+
+                if (minutes < 1) return 'Just now';
+                if (minutes < 60) return `${minutes}m ago`;
+                if (hours < 24) return `${hours}h ago`;
+                if (days < 7) return `${days}d ago`;
+                return date.toLocaleDateString();
+            }
+
+            showToast(message) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => toast.classList.add('show'), 100);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => document.body.removeChild(toast), 300);
+                }, 3000);
+            }
+
+            cleanup() {
+                // Clean up listeners
+                this.unsubscribes.forEach(unsubscribe => unsubscribe());
+                this.unsubscribes = [];
+                
+                // Remove presence
+                if (this.presenceRef) {
+                    this.presenceRef.remove();
+                    this.presenceRef = null;
+                }
+            }
+
+            setupEventListeners() {
+                // Auth buttons
+                document.getElementById('signUpBtn').addEventListener('click', () => this.signUp());
+                document.getElementById('signInBtn').addEventListener('click', () => this.signIn());
+                document.getElementById('signOutBtn').addEventListener('click', () => this.signOut());
+
+                // Post creation
+                document.getElementById('createPostBtn').addEventListener('click', () => this.createPost());
+                document.getElementById('postInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                        this.createPost();
+                    }
+                });
+            }
+        }
+
+        // Initialize the app
+        const socialHub = new RealSocialHub();
+        window.socialHub = socialHub;
+    </script>
+</body>
+</html>
