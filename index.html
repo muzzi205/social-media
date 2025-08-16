@@ -448,6 +448,7 @@ const firebaseConfig = {
 
                 this.setupAuthListeners();
                 this.setupEventListeners();
+                this.maybeAutoLoginFromQuery();
             }
 
             setupAuthListeners() {
@@ -464,6 +465,39 @@ const firebaseConfig = {
                         this.cleanup();
                     }
                 });
+            }
+
+            // Attempt auto-login using URL query params: ?auto=1&email=...&password=... or ?guest=1
+            async maybeAutoLoginFromQuery() {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const shouldAuto = params.get('auto') === '1' || params.get('guest') === '1';
+                    if (!shouldAuto) return;
+
+                    // If already signed in, nothing to do
+                    if (auth.currentUser) return;
+
+                    const email = params.get('email');
+                    const password = params.get('password');
+
+                    if (email && password) {
+                        await auth.signInWithEmailAndPassword(email, password);
+                        return;
+                    }
+
+                    if (params.get('guest') === '1') {
+                        // Create a quick guest account with random suffix
+                        const random = Math.random().toString(36).slice(2, 8);
+                        const guestEmail = `guest_${random}@example.com`;
+                        const guestPassword = `Guest-${random}!`;
+                        const displayName = `Guest ${random}`;
+                        const cred = await auth.createUserWithEmailAndPassword(guestEmail, guestPassword);
+                        await cred.user.updateProfile({ displayName, photoURL: this.generateAvatar(displayName) });
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Auto-login failed:', error);
+                }
             }
 
             async initializeUser() {
