@@ -162,7 +162,7 @@
     
     <!-- Authentication Modal -->
     <div id="authModal" class="modal active">
-        <div class="glass-card rounded-xl p-8 w-96">
+        <div class="glass-card rounded-xl p-8 max-w-md w-11/12 mx-auto">
             <h2 class="text-2xl font-bold mb-6 text-center">Join SocialHub</h2>
             <div id="authContent">
                 <div class="space-y-4">
@@ -179,36 +179,40 @@
     <!-- Main App (hidden until authenticated) -->
     <div id="mainApp" style="display: none;">
         <!-- Navigation -->
-        <nav class="glass-card fixed w-full top-0 z-40">
+        <nav class="glass-card fixed w-full top-0 z-40 py-3 sm:py-4">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center">
+                <div class="flex flex-col sm:flex-row justify-between items-center h-auto sm:h-16">
+                    <div class="flex items-center justify-between w-full sm:w-auto mb-2 sm:mb-0">
                         <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SocialHub</h1>
                         <span class="ml-3 text-sm text-green-400">🟢 LIVE</span>
                     </div>
+                    <!-- Search Bar -->
+                    <div class="flex-1 w-full sm:w-auto flex justify-center mx-0 sm:mx-4 mb-2 sm:mb-0">
+                        <input type="text" id="searchInput" placeholder="Search posts..." class="w-full max-w-md bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    </div>
                     
-                    <div class="flex items-center space-x-6">
+                    <div class="flex items-center space-x-3 sm:space-x-6 w-full sm:w-auto justify-between sm:justify-start">
                         <div id="onlineUsersCount" class="text-sm text-gray-400">
                             <span class="text-green-400">●</span> <span id="userCount">0</span> online
                         </div>
                         
                         <div class="flex items-center space-x-3">
                             <img id="currentUserAvatar" src="" alt="Profile" class="w-8 h-8 rounded-full">
-                            <div>
+                            <div class="hidden sm:block"> <!-- Hide on small screens to save space -->
                                 <span id="currentUserName" class="font-medium text-gray-300"></span>
                                 <div class="text-xs text-green-400">Online</div>
                             </div>
-                            <button id="signOutBtn" class="text-red-400 hover:text-red-300 text-sm">Sign Out</button>
+                            <button id="signOutBtn" class="text-red-400 hover:text-red-300 text-sm py-1 px-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors">Sign Out</button>
                         </div>
                     </div>
                 </div>
             </div>
         </nav>
 
-        <div class="pt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="pt-16 sm:pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
                 <!-- Left Sidebar -->
-                <div class="lg:col-span-1">
+                <div class="lg:col-span-1 space-y-6">
                     <div class="glass-card rounded-xl p-6 mb-6">
                         <div class="text-center">
                             <div class="relative inline-block mb-4">
@@ -236,7 +240,7 @@
                     </div>
 
                     <!-- Online Users -->
-                    <div class="glass-card rounded-xl p-6">
+                    <div class="glass-card rounded-xl p-6 mb-6">
                         <h4 class="font-semibold text-white mb-4">Online Users</h4>
                         <div id="onlineUsersList" class="space-y-3"></div>
                     </div>
@@ -293,6 +297,37 @@
                             </div>
                         </div>
                         
+                        <!-- Image Upload Section -->
+                        <div id="imageUploadSection" class="mb-4" style="display: none;">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-gray-300">Add Image to Post</h4>
+                                <button id="hideImageBtn" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide image upload">
+                                    <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="imageUploadArea" class="video-upload-area"> <!-- Reusing video-upload-area styles -->
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <p class="text-gray-400 mb-2">Drag and drop an image here or click to select</p>
+                                    <p class="text-xs text-gray-500">JPG, PNG, GIF, WEBP files up to 10MB</p>
+                                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                                </div>
+                            </div>
+                            
+                            <!-- Image Preview -->
+                            <div id="imagePreview" class="mt-4" style="display: none;">
+                                <img id="previewImage" class="video-preview w-full" alt="Image Preview"> <!-- Reusing video-preview styles -->
+                                <div class="flex items-center justify-between mt-2">
+                                    <span id="imageFileName" class="text-sm text-gray-400"></span>
+                                    <button id="removeImageBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-4">
                                 <div class="text-sm text-gray-400">
@@ -303,6 +338,12 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                                     </svg>
                                     <span>Add Video</span>
+                                </button>
+                                <button id="addImageBtn" class="flex items-center space-x-1 text-blue-400 hover:text-blue-300 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span>Add Image</span>
                                 </button>
                             </div>
                             <button id="createPostBtn" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">
@@ -322,7 +363,7 @@
                 </div>
 
                 <!-- Right Sidebar -->
-                <div class="lg:col-span-1">
+                <div class="lg:col-span-1 space-y-6">
                     <!-- Live Activity -->
                     <div class="glass-card rounded-xl p-6 mb-6">
                         <h4 class="font-semibold text-white mb-4">Live Activity</h4>
@@ -354,7 +395,7 @@
 
     <!-- Profile Picture Change Modal -->
     <div id="profilePictureModal" class="modal">
-        <div class="glass-card rounded-xl p-8 w-96">
+        <div class="glass-card rounded-xl p-8 max-w-md w-11/12 mx-auto">
             <h2 class="text-2xl font-bold mb-6 text-center">Change Profile Picture</h2>
             <div class="text-center mb-6">
                 <img id="currentProfilePreview" src="" alt="Current Profile" class="w-24 h-24 rounded-full mx-auto mb-4">
@@ -402,7 +443,7 @@
     </div>
 
     <script>
-        // Firebase Configuration - YOU NEED TO REPLACE THIS WITH YOUR CONFIG
+        
 const firebaseConfig = {
   apiKey: "AIzaSyAEWurFdnvGdsbJUYCXAncijOxvgE-y2R4",
   authDomain: "socialhub-app-38104.firebaseapp.com",
@@ -437,6 +478,9 @@ const firebaseConfig = {
                 this.currentVideo = null;
                 this.uploadTask = null;
                 this.profileUploadTask = null;
+                this.currentImage = null; // To hold the selected image file
+                this.imageUploadTask = null; // To track image upload progress
+                this.currentSearchQuery = ''; // To hold the current search query
                 this.init();
             }
 
@@ -549,11 +593,27 @@ const firebaseConfig = {
 
             startRealtimeListeners() {
                 // Listen to posts in real-time
-                const postsRef = db.collection('posts').orderBy('timestamp', 'desc').limit(50);
+                let postsQuery = db.collection('posts').orderBy('timestamp', 'desc').limit(50);
+
+                if (this.currentSearchQuery) {
+                    // Basic search by content (you'd need more advanced indexing for full-text search)
+                    // For partial matches, you'd need a third-party search service like Algolia or Elastic.
+                    // This example performs a "starts with" search by using range queries.
+                    postsQuery = db.collection('posts')
+                                    .where('content', '>=', this.currentSearchQuery)
+                                    .where('content', '<=', this.currentSearchQuery + '\\uf8ff')
+                                    .orderBy('content') // Order by content for efficient range query
+                                    .limit(50);
+                    this.showToast(`Searching for "${this.currentSearchQuery}"...`);
+                }
+
                 this.unsubscribes.push(
-                    postsRef.onSnapshot((snapshot) => {
+                    postsQuery.onSnapshot((snapshot) => {
                         this.renderPosts(snapshot.docs);
                         this.updateStats();
+                    }, (error) => {
+                        console.error("Error fetching posts:", error);
+                        this.showToast("❌ Error fetching posts. Search might be limited.");
                     })
                 );
 
@@ -566,13 +626,37 @@ const firebaseConfig = {
                 );
             }
 
+            // New: Search functionality
+            async handleSearch() {
+                const searchInput = document.getElementById('searchInput');
+                const query = searchInput.value.trim();
+
+                if (query === this.currentSearchQuery) return; // No change, do nothing
+
+                this.currentSearchQuery = query;
+
+                // Clear previous posts and show loading
+                document.getElementById('postsContainer').innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <div class="loading mx-auto mb-4"></div>
+                        <h3 class="text-xl font-semibold mb-2">${query ? `Searching for "${query}"...` : 'Loading live posts...'}</h3>
+                        <p>${query ? 'Results will appear here shortly.' : 'Connecting to real-time database'}</p>
+                    </div>
+                `;
+
+                // Re-establish listeners with new query
+                this.unsubscribes.forEach(unsubscribe => unsubscribe()); // Unsubscribe old listeners
+                this.unsubscribes = []; // Clear array
+                this.startRealtimeListeners(); // Start new listeners with search query
+            }
+
             async createPost() {
                 const input = document.getElementById('postInput');
                 const content = input.value.trim();
                 const createBtn = document.getElementById('createPostBtn');
 
-                if (!content && !this.currentVideo) {
-                    this.showToast('⚠️ Please write something or add a video!');
+                if (!content && !this.currentVideo && !this.currentImage) {
+                    this.showToast('⚠️ Please write something, add a video, or add an image!');
                     return;
                 }
 
@@ -581,13 +665,22 @@ const firebaseConfig = {
                 createBtn.innerHTML = '<div class="loading"></div> Posting...';
 
                 try {
-                    let videoURL = null;
+                    let mediaURL = null;
+                    let mediaType = null; // 'video' or 'image'
                     
-                    // Upload video if one is selected
-                    if (this.currentVideo) {
+                    // Prioritize image over video if both are selected
+                    if (this.currentImage) {
+                        this.showToast('🖼️ Uploading image...');
+                        mediaURL = await this.uploadImage();
+                        mediaType = 'image';
+                        if (!mediaURL) {
+                            throw new Error('Image upload failed');
+                        }
+                    } else if (this.currentVideo) {
                         this.showToast('📹 Uploading video...');
-                        videoURL = await this.uploadVideo();
-                        if (!videoURL) {
+                        mediaURL = await this.uploadVideo();
+                        mediaType = 'video';
+                        if (!mediaURL) {
                             throw new Error('Video upload failed');
                         }
                     }
@@ -602,8 +695,10 @@ const firebaseConfig = {
                         likes: [],
                         likeCount: 0,
                         comments: [],
-                        hasVideo: !!videoURL,
-                        videoURL: videoURL
+                        hasVideo: mediaType === 'video',
+                        videoURL: mediaType === 'video' ? mediaURL : null,
+                        hasImage: mediaType === 'image',
+                        imageURL: mediaType === 'image' ? mediaURL : null
                     };
 
                     // Add post to Firestore
@@ -611,10 +706,10 @@ const firebaseConfig = {
 
                     // Create activity message
                     let activityMsg;
-                    if (videoURL && content) {
+                    if (mediaType === 'video') {
                         activityMsg = `${this.currentUser.displayName} posted a video: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
-                    } else if (videoURL) {
-                        activityMsg = `${this.currentUser.displayName} shared a video`;
+                    } else if (mediaType === 'image') {
+                        activityMsg = `${this.currentUser.displayName} posted an image: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
                     } else {
                         activityMsg = `${this.currentUser.displayName} posted: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`;
                     }
@@ -628,7 +723,8 @@ const firebaseConfig = {
 
                     // Reset form
                     input.value = '';
-                    this.hideVideoUpload();
+                    this.hideVideoUpload(); // Still hide video regardless as a cleanup
+                    this.hideImageUpload(); // Hide image upload
                     this.showToast('✅ Posted live to all users!');
                 } catch (error) {
                     console.error('Error creating post:', error);
@@ -640,7 +736,7 @@ const firebaseConfig = {
                 }
             }
 
-            async toggleLike(postId) {
+            async toggleLike(postId) { // Removed postUid argument as friend feature is gone
                 try {
                     const postRef = db.collection('posts').doc(postId);
                     const post = await postRef.get();
@@ -690,6 +786,7 @@ const firebaseConfig = {
                     const isLiked = post.likes?.includes(this.currentUser.uid);
                     const isMyPost = post.uid === this.currentUser.uid;
                     const hasVideo = post.hasVideo && post.videoURL;
+                    const hasImage = post.hasImage && post.imageURL;
                     const commentsCount = post.comments?.length || 0;
 
                     return `
@@ -705,6 +802,7 @@ const firebaseConfig = {
                                     </div>
                                     <div class="flex items-center space-x-2">
                                         ${hasVideo ? '<span class="text-xs bg-purple-600 px-2 py-1 rounded-full">📹 VIDEO</span>' : ''}
+                                        ${hasImage ? '<span class="text-xs bg-blue-600 px-2 py-1 rounded-full">🖼️ IMAGE</span>' : ''}
                                         <div class="text-xs text-green-400">🟢 LIVE</div>
                                     </div>
                                 </div>
@@ -719,10 +817,15 @@ const firebaseConfig = {
                                         </video>
                                     </div>
                                 ` : ''}
+                                ${hasImage ? `
+                                    <div class="mb-4">
+                                        <img class="w-full max-h-96 object-contain bg-black rounded-lg" src="${post.imageURL}" alt="Post Image">
+                                    </div>
+                                ` : ''}
                                 
                                 <div class="flex items-center justify-between mb-4">
                                     <div class="flex items-center space-x-4">
-                                        <button class="like-btn flex items-center space-x-2 ${isLiked ? 'text-red-400' : 'text-gray-400'} hover:text-red-300 transition-colors" 
+                                        <button class="like-btn flex items-center space-x-2 ${isLiked ? 'text-red-400' : 'text-gray-400'} hover:text-red-300 transition-colors p-2 rounded-md" 
                                                 onclick="socialHub.toggleLike('${postId}')">
                                             <svg class="w-5 h-5" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
@@ -730,7 +833,7 @@ const firebaseConfig = {
                                             <span>${post.likeCount || 0}</span>
                                         </button>
                                         
-                                        <button class="comment-btn flex items-center space-x-2 text-gray-400 hover:text-blue-300 transition-colors" 
+                                        <button class="comment-btn flex items-center space-x-2 text-gray-400 hover:text-blue-300 transition-colors p-2 rounded-md" 
                                                 onclick="socialHub.toggleComments('${postId}')">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
@@ -760,7 +863,7 @@ const firebaseConfig = {
                                             <img src="${this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName)}" alt="You" class="w-8 h-8 rounded-full">
                                             <input type="text" id="comment-input-${postId}" placeholder="Write a reply..." 
                                                    class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                            <button onclick="socialHub.addComment('${postId}')" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">
+                                            <button onclick="socialHub.addComment('${postId}')" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors flex-shrink-0">
                                                 Reply
                                             </button>
                                         </div>
@@ -1028,6 +1131,100 @@ const firebaseConfig = {
                 this.showToast('🗑️ Video removed');
             }
             
+            // Image Upload Methods
+            showImageUpload() {
+                document.getElementById('imageUploadSection').style.display = 'block';
+                document.getElementById('addImageBtn').style.display = 'none';
+            }
+
+            hideImageUpload() {
+                document.getElementById('imageUploadSection').style.display = 'none';
+                document.getElementById('addImageBtn').style.display = 'block';
+                this.resetImageUpload();
+            }
+
+            resetImageUpload() {
+                document.getElementById('imageUploadArea').style.display = 'block';
+                document.getElementById('imagePreview').style.display = 'none';
+                document.getElementById('imageInput').value = '';
+                this.currentImage = null;
+                if (this.imageUploadTask) {
+                    this.imageUploadTask.cancel();
+                    this.imageUploadTask = null;
+                }
+            }
+
+            validateImageFile(file) {
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                
+                if (!allowedTypes.includes(file.type)) {
+                    this.showToast('❌ Please select a valid image file (JPG, PNG, GIF, WEBP)');
+                    return false;
+                }
+                
+                if (file.size > maxSize) {
+                    this.showToast('❌ Image file too large. Please select a file under 10MB');
+                    return false;
+                }
+                
+                return true;
+            }
+
+            handleImageSelection(file) {
+                if (!this.validateImageFile(file)) return;
+                
+                this.currentImage = file;
+                
+                // Create preview URL
+                const imageUrl = URL.createObjectURL(file);
+                const previewImage = document.getElementById('previewImage');
+                previewImage.src = imageUrl;
+                
+                // Update UI
+                document.getElementById('imageFileName').textContent = file.name;
+                document.getElementById('imageUploadArea').style.display = 'none';
+                document.getElementById('imagePreview').style.display = 'block';
+                
+                this.showToast('🖼️ Image selected! Ready to post.');
+            }
+
+            async uploadImage() {
+                if (!this.currentImage) return null;
+
+                try {
+                    // Create unique filename
+                    const timestamp = Date.now();
+                    const fileName = `images/${this.currentUser.uid}/${timestamp}_${this.currentImage.name}`;
+                    
+                    // Upload to Firebase Storage
+                    const storageRef = storage.ref(fileName);
+                    this.imageUploadTask = storageRef.put(this.currentImage);
+                    
+                    // Wait for upload completion
+                    await this.imageUploadTask;
+                    
+                    // Get download URL
+                    const downloadURL = await storageRef.getDownloadURL();
+                    
+                    console.log('🖼️ Image uploaded successfully:', downloadURL);
+                    return downloadURL;
+                    
+                } catch (error) {
+                    console.error('Error uploading image:', error);
+                    this.showToast('❌ Failed to upload image. Please try again.');
+                    return null;
+                }
+            }
+
+            removeImage() {
+                if (this.currentImage) {
+                    URL.revokeObjectURL(document.getElementById('previewImage').src);
+                }
+                this.resetImageUpload();
+                this.showToast('🗑️ Image removed');
+            }
+            
             // Comments functionality
             toggleComments(postId) {
                 const commentsSection = document.getElementById(`comments-${postId}`);
@@ -1053,7 +1250,7 @@ const firebaseConfig = {
                         author: this.currentUser.displayName,
                         authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
                         content: content,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        timestamp: new Date() // Use client-side timestamp for array elements
                     };
                     
                     // Add comment to post
@@ -1061,6 +1258,10 @@ const firebaseConfig = {
                         comments: firebase.firestore.FieldValue.arrayUnion(comment)
                     });
                     
+                    // Re-render posts to show the new comment immediately
+                    const postDoc = await db.collection('posts').doc(postId).get();
+                    this.renderPosts([postDoc]); // Re-render only the affected post
+
                     // Add activity
                     await db.collection('activity').add({
                         uid: this.currentUser.uid,
@@ -1071,7 +1272,7 @@ const firebaseConfig = {
                     input.value = '';
                     this.showToast('✅ Reply posted!');
                 } catch (error) {
-                    console.error('Error adding comment:', error);
+                    console.error('Error adding comment:', error); // Log the full error object
                     this.showToast('❌ Error posting reply. Try again.');
                 }
             }
@@ -1121,7 +1322,7 @@ const firebaseConfig = {
                 this.selectedProfileImage = null;
             }
             
-            validateImageFile(file) {
+            validateImageFile(file) { // This method is duplicated, will be removed later if not needed
                 const maxSize = 20 * 1024 * 1024; // Increased to 20MB since we'll compress it
                 const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                 
@@ -1469,6 +1670,49 @@ const firebaseConfig = {
                 document.getElementById('removeVideoBtn').addEventListener('click', () => this.removeVideo());
                 document.getElementById('hideVideoBtn').addEventListener('click', () => this.hideVideoUpload());
                 
+                // Image upload
+                document.getElementById('addImageBtn').addEventListener('click', () => this.showImageUpload());
+                document.getElementById('removeImageBtn').addEventListener('click', () => this.removeImage());
+                document.getElementById('hideImageBtn').addEventListener('click', () => this.hideImageUpload());
+
+                const imageInput = document.getElementById('imageInput');
+                imageInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleImageSelection(e.target.files[0]);
+                    }
+                });
+
+                const imageDropArea = document.getElementById('imageUploadArea');
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    imageDropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    imageDropArea.addEventListener(eventName, () => {
+                        imageDropArea.classList.add('drag-over');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    imageDropArea.addEventListener(eventName, () => {
+                        imageDropArea.classList.remove('drag-over');
+                    }, false);
+                });
+
+                imageDropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleImageSelection(file);
+                    }
+                }, false);
+
+                imageDropArea.addEventListener('click', () => {
+                    imageInput.click();
+                });
+                
                 // Profile picture upload
                 document.getElementById('profileImageInput').addEventListener('change', (e) => {
                     if (e.target.files.length > 0) {
@@ -1520,6 +1764,9 @@ const firebaseConfig = {
                 dropArea.addEventListener('click', () => {
                     videoInput.click();
                 });
+
+                // Search input event listener
+                document.getElementById('searchInput').addEventListener('input', () => this.handleSearch());
             }
         }
 
