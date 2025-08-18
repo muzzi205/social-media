@@ -148,6 +148,22 @@
             background: linear-gradient(90deg, #6366f1, #8b5cf6);
             transition: width 0.3s ease;
         }
+
+        /* Custom scrollbar for chat messages */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
@@ -244,6 +260,16 @@
                         <h4 class="font-semibold text-white mb-4">Online Users</h4>
                         <div id="onlineUsersList" class="space-y-3"></div>
                     </div>
+
+                    <!-- Start a Private Chat -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <h4 class="font-semibold text-white mb-4">Start Private Chat</h4>
+                        <div class="flex space-x-2 items-center">
+                            <input type="text" id="privateChatNameInput" placeholder="Enter user's name" class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button id="findUserBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition-colors flex-shrink-0">Find</button>
+                        </div>
+                        <p id="privateChatStatus" class="text-sm mt-2 text-gray-400"></p>
+                    </div>
                 </div>
 
                 <!-- Main Feed -->
@@ -286,13 +312,13 @@
                             </div>
                             
                             <!-- Upload Progress -->
-                            <div id="uploadProgress" class="mt-4" style="display: none;">
+                            <div id="videoUploadProgress" class="mt-4" style="display: none;">
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="text-sm text-gray-400">Uploading video...</span>
-                                    <span id="progressPercent" class="text-sm text-indigo-400">0%</span>
+                                    <span id="videoProgressPercent" class="text-sm text-indigo-400">0%</span>
                                 </div>
                                 <div class="upload-progress">
-                                    <div id="progressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                    <div id="videoProgressBar" class="upload-progress-bar" style="width: 0%"></div>
                                 </div>
                             </div>
                         </div>
@@ -326,13 +352,70 @@
                                     <button id="removeImageBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
                                 </div>
                             </div>
+                            <!-- Upload Progress for Image -->
+                            <div id="imageUploadProgress" class="mt-4" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">Uploading image...</span>
+                                    <span id="imageProgressPercent" class="text-sm text-indigo-400">0%</span>
+                                </div>
+                                <div class="upload-progress">
+                                    <div id="imageProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-4">
-                                <div class="text-sm text-gray-400">
-                                    Post will be visible to all <span id="activeUsers">0</span> online users
+                        <!-- Generic File Upload Section -->
+                        <div id="fileUploadSection" class="mb-4" style="display: none;">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-gray-300">Add Any File to Post</h4>
+                                <button id="hideFileBtn" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide file upload">
+                                    <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="fileUploadArea" class="video-upload-area">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    <p class="text-gray-400 mb-2">Drag and drop any file here or click to select</p>
+                                    <p class="text-xs text-gray-500">Max size 50MB (PDFs, Docs, Zips, etc.)</p>
+                                    <input type="file" id="fileInput" accept="*/*" class="hidden">
                                 </div>
+                            </div>
+                            
+                            <!-- File Preview -->
+                            <div id="genericFilePreview" class="mt-4" style="display: none;">
+                                <img id="previewGenericImage" class="video-preview w-full" alt="File Preview" style="display: none;">
+                                <video id="previewGenericVideo" class="video-preview w-full" controls style="display: none;"></video>
+                                <div id="genericFileDisplay" class="p-4 bg-gray-800 rounded-lg text-gray-400 text-center" style="display: none;">
+                                    <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p class="font-medium">Attached File</p>
+                                    <span id="genericFileName" class="text-sm"></span>
+                                </div>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span id="displayGenericFileName" class="text-sm text-gray-400"></span>
+                                    <button id="removeGenericFileBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Progress for Generic File -->
+                            <div id="fileUploadProgress" class="mt-4" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">Uploading file...</span>
+                                    <span id="fileProgressPercent" class="text-sm text-indigo-400">0%</span>
+                                </div>
+                                <div class="upload-progress">
+                                    <div id="fileProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-10">
                                 <button id="addVideoBtn" class="flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
@@ -344,6 +427,12 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                     </svg>
                                     <span>Add Image</span>
+                                </button>
+                                <button id="addFileBtn" class="flex items-center space-x-1 text-gray-400 hover:text-gray-300 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    <span>Add File</span>
                                 </button>
                             </div>
                             <button id="createPostBtn" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">
@@ -442,6 +531,29 @@
         </div>
     </div>
 
+    <!-- Private Message Modal -->
+    <div id="privateMessageModal" class="modal">
+        <div class="glass-card rounded-xl p-8 max-w-lg w-11/12 mx-auto flex flex-col h-[80vh]">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-700 mb-4">
+                <div class="flex items-center space-x-3">
+                    <img id="chatRecipientAvatar" src="" alt="" class="w-10 h-10 rounded-full">
+                    <h3 id="chatRecipientName" class="font-semibold text-white text-lg"></h3>
+                </div>
+                <button onclick="socialHub.hidePrivateChatModal()" class="text-gray-400 hover:text-gray-300 transition-colors text-sm">Close</button>
+            </div>
+            
+            <div id="chatMessages" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                <!-- Messages will be loaded here -->
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-700 flex items-center space-x-3">
+                <input type="text" id="privateMessageInput" placeholder="Type your message..." 
+                       class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button id="sendPrivateMessageBtn" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">Send</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         
 const firebaseConfig = {
@@ -475,12 +587,16 @@ const firebaseConfig = {
                 this.currentUser = null;
                 this.unsubscribes = [];
                 this.presenceRef = null;
-                this.currentVideo = null;
-                this.uploadTask = null;
-                this.profileUploadTask = null;
+                this.currentVideo = null; // To hold the selected video file
+                this.uploadTask = null; // To track video upload progress
                 this.currentImage = null; // To hold the selected image file
                 this.imageUploadTask = null; // To track image upload progress
+                this.currentFile = null; // To hold the selected generic file
+                this.fileUploadTask = null; // To track generic file upload progress
+                this.profileUploadTask = null;
                 this.currentSearchQuery = ''; // To hold the current search query
+                this.currentChatRecipient = null; // To hold the details of the user currently being chatted with
+                this.privateChatUnsubscribe = null; // To store the unsubscribe function for private chat listener
                 this.init();
             }
 
@@ -576,6 +692,7 @@ const firebaseConfig = {
                                 <p class="text-sm font-medium text-white">${user.displayName}</p>
                                 <p class="text-xs text-green-400">Online now</p>
                             </div>
+                            <button onclick="socialHub.startPrivateChat(${JSON.stringify(user.uid)}, ${JSON.stringify(user.displayName)}, ${JSON.stringify(user.photoURL)})" class="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded-full transition-colors">Message</button>
                         </div>
                     `).join('');
 
@@ -655,8 +772,8 @@ const firebaseConfig = {
                 const content = input.value.trim();
                 const createBtn = document.getElementById('createPostBtn');
 
-                if (!content && !this.currentVideo && !this.currentImage) {
-                    this.showToast('⚠️ Please write something, add a video, or add an image!');
+                if (!content && !this.currentVideo && !this.currentImage && !this.currentFile) {
+                    this.showToast('⚠️ Please write something, add a video, image, or any file!');
                     return;
                 }
 
@@ -665,27 +782,32 @@ const firebaseConfig = {
                 createBtn.innerHTML = '<div class="loading"></div> Posting...';
 
                 try {
-                    let mediaURL = null;
-                    let mediaType = null; // 'video' or 'image'
+                    let fileURL = null;
+                    let fileType = null;
                     
-                    // Prioritize image over video if both are selected
-                    if (this.currentImage) {
-                        this.showToast('🖼️ Uploading image...');
-                        mediaURL = await this.uploadImage();
-                        mediaType = 'image';
-                        if (!mediaURL) {
-                            throw new Error('Image upload failed');
+                    if (this.currentVideo) {
+                        this.showToast('Uploading video...');
+                        fileURL = await this.uploadVideo();
+                        fileType = 'video';
+                        if (!fileURL) throw new Error('Video upload failed');
+                    } else if (this.currentImage) {
+                        this.showToast('Uploading image...');
+                        fileURL = await this.uploadImage();
+                        fileType = 'image';
+                        if (!fileURL) throw new Error('Image upload failed');
+                    } else if (this.currentFile) {
+                        this.showToast('Uploading file...');
+                        fileURL = await this.uploadFile();
+                        // For generic files, determine type based on MIME for activity message
+                        const mimeType = this.currentFile.type.split('/')[0];
+                        if (mimeType === 'image' || mimeType === 'video') {
+                            fileType = mimeType;
+                        } else {
+                            fileType = 'other_file';
                         }
-                    } else if (this.currentVideo) {
-                        this.showToast('📹 Uploading video...');
-                        mediaURL = await this.uploadVideo();
-                        mediaType = 'video';
-                        if (!mediaURL) {
-                            throw new Error('Video upload failed');
-                        }
+                        if (!fileURL) throw new Error('File upload failed');
                     }
 
-                    // Create post data
                     const postData = {
                         uid: this.currentUser.uid,
                         author: this.currentUser.displayName,
@@ -695,10 +817,9 @@ const firebaseConfig = {
                         likes: [],
                         likeCount: 0,
                         comments: [],
-                        hasVideo: mediaType === 'video',
-                        videoURL: mediaType === 'video' ? mediaURL : null,
-                        hasImage: mediaType === 'image',
-                        imageURL: mediaType === 'image' ? mediaURL : null
+                        hasFile: !!fileURL,
+                        fileURL: fileURL,
+                        fileType: fileType
                     };
 
                     // Add post to Firestore
@@ -706,10 +827,12 @@ const firebaseConfig = {
 
                     // Create activity message
                     let activityMsg;
-                    if (mediaType === 'video') {
+                    if (fileType === 'video') {
                         activityMsg = `${this.currentUser.displayName} posted a video: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
-                    } else if (mediaType === 'image') {
+                    } else if (fileType === 'image') {
                         activityMsg = `${this.currentUser.displayName} posted an image: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
+                    } else if (fileType === 'other_file') {
+                        activityMsg = `${this.currentUser.displayName} posted a file: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
                     } else {
                         activityMsg = `${this.currentUser.displayName} posted: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`;
                     }
@@ -721,10 +844,11 @@ const firebaseConfig = {
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    // Reset form
+                    // Reset form and file inputs
                     input.value = '';
-                    this.hideVideoUpload(); // Still hide video regardless as a cleanup
-                    this.hideImageUpload(); // Hide image upload
+                    this.resetVideoUpload();
+                    this.resetImageUpload();
+                    this.resetFileUpload();
                     this.showToast('✅ Posted live to all users!');
                 } catch (error) {
                     console.error('Error creating post:', error);
@@ -785,9 +909,53 @@ const firebaseConfig = {
                     const timeAgo = this.getTimeAgo(timestamp);
                     const isLiked = post.likes?.includes(this.currentUser.uid);
                     const isMyPost = post.uid === this.currentUser.uid;
-                    const hasVideo = post.hasVideo && post.videoURL;
-                    const hasImage = post.hasImage && post.imageURL;
+                    const hasFile = post.hasFile && post.fileURL;
+                    const fileType = post.fileType; // 'image', 'video', or 'other_files'
                     const commentsCount = post.comments?.length || 0;
+
+                    const hasVideo = post.videoURL; // Check for old video posts
+                    const hasImage = post.imageURL; // Check for old image posts
+
+                    let mediaHtml = '';
+
+                    if (hasVideo) {
+                        mediaHtml = `
+                            <div class="mb-4">
+                                <video class="w-full max-h-96 bg-black rounded-lg" controls>
+                                    <source src="${post.videoURL}" type="${this.getMimeType(post.videoURL)}">
+                                    <p class="text-gray-400 p-4">Your browser doesn't support video playback.</p>
+                                </video>
+                            </div>
+                        `;
+                    } else if (hasImage) {
+                        mediaHtml = `
+                            <div class="mb-4">
+                                <img class="w-full max-h-96 object-contain bg-black rounded-lg" src="${post.imageURL}" alt="Post Image">
+                            </div>
+                        `;
+                    } else if (hasFile) {
+                        // Handle the new generic file posts
+                        mediaHtml = `
+                            <div class="mb-4">
+                                ${fileType === 'image' ? `
+                                    <img class="w-full max-h-96 object-contain bg-black rounded-lg" src="${post.fileURL}" alt="Post Image">
+                                ` : fileType === 'video' ? `
+                                    <video class="w-full max-h-96 bg-black rounded-lg" controls>
+                                        <source src="${post.fileURL}" type="${this.getMimeType(post.fileURL)}">
+                                        <p class="text-gray-400 p-4">Your browser doesn't support video playback.</p>
+                                    </video>
+                                ` : `
+                                    <div class="p-4 bg-gray-800 rounded-lg text-gray-400 text-center">
+                                        <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <p class="font-medium">Attached File: ${this.getFileNameFromUrl(post.fileURL)}</p>
+                                        <a href="${post.fileURL}" target="_blank" class="text-indigo-400 hover:underline text-sm mt-2 block">Download File</a>
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    }
 
                     return `
                         <div class="post-card rounded-xl">
@@ -801,27 +969,16 @@ const firebaseConfig = {
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-2">
-                                        ${hasVideo ? '<span class="text-xs bg-purple-600 px-2 py-1 rounded-full">📹 VIDEO</span>' : ''}
-                                        ${hasImage ? '<span class="text-xs bg-blue-600 px-2 py-1 rounded-full">🖼️ IMAGE</span>' : ''}
+                                        ${hasVideo ? '<span class="text-xs bg-purple-600 px-2 py-1 rounded-full">📹</span>' : ''}
+                                        ${hasImage ? '<span class="text-xs bg-blue-600 px-2 py-1 rounded-full">🖼️</span>' : ''}
+                                        ${hasFile ? `<span class="text-xs bg-${this.getFileTypeColor(fileType)}-600 px-2 py-1 rounded-full">${this.getFileTypeTag(fileType)}</span>` : ''}
                                         <div class="text-xs text-green-400">🟢 LIVE</div>
                                     </div>
                                 </div>
                                 
                                 ${post.content ? `<p class="text-gray-300 mb-4">${post.content}</p>` : ''}
                                 
-                                ${hasVideo ? `
-                                    <div class="mb-4">
-                                        <video class="w-full max-h-96 bg-black rounded-lg" controls>
-                                            <source src="${post.videoURL}" type="video/mp4">
-                                            <p class="text-gray-400 p-4">Your browser doesn't support video playback.</p>
-                                        </video>
-                                    </div>
-                                ` : ''}
-                                ${hasImage ? `
-                                    <div class="mb-4">
-                                        <img class="w-full max-h-96 object-contain bg-black rounded-lg" src="${post.imageURL}" alt="Post Image">
-                                    </div>
-                                ` : ''}
+                                ${mediaHtml}
                                 
                                 <div class="flex items-center justify-between mb-4">
                                     <div class="flex items-center space-x-4">
@@ -949,10 +1106,19 @@ const firebaseConfig = {
             async signUp() {
                 const email = document.getElementById('emailInput').value;
                 const password = document.getElementById('passwordInput').value;
-                const displayName = document.getElementById('displayNameInput').value;
+                const displayName = document.getElementById('displayNameInput').value.trim();
 
                 if (!email || !password || !displayName) {
                     this.showToast('⚠️ Please fill all fields');
+                    return;
+                }
+
+                // Check if display name already exists
+                const usersRef = db.collection('users');
+                const existingUserSnapshot = await usersRef.where('displayName', '==', displayName).get();
+                
+                if (!existingUserSnapshot.empty) {
+                    this.showToast('❌ This username is already taken. Please choose another.');
                     return;
                 }
 
@@ -962,6 +1128,11 @@ const firebaseConfig = {
                         displayName: displayName,
                         photoURL: this.generateAvatar(displayName)
                     });
+                    // Also store display name in Firestore user document
+                    await db.collection('users').doc(userCredential.user.uid).set({
+                        displayName: displayName
+                    }, { merge: true });
+
                     this.showToast('✅ Account created successfully!');
                 } catch (error) {
                     this.showToast(`❌ ${error.message}`);
@@ -1041,7 +1212,7 @@ const firebaseConfig = {
             resetVideoUpload() {
                 document.getElementById('videoUploadArea').style.display = 'block';
                 document.getElementById('videoPreview').style.display = 'none';
-                document.getElementById('uploadProgress').style.display = 'none';
+                document.getElementById('videoUploadProgress').style.display = 'none';
                 document.getElementById('videoInput').value = '';
                 this.currentVideo = null;
                 if (this.uploadTask) {
@@ -1090,7 +1261,7 @@ const firebaseConfig = {
                 
                 try {
                     // Show upload progress
-                    document.getElementById('uploadProgress').style.display = 'block';
+                    document.getElementById('videoUploadProgress').style.display = 'block';
                     
                     // Create unique filename
                     const timestamp = Date.now();
@@ -1103,8 +1274,8 @@ const firebaseConfig = {
                     // Track upload progress
                     this.uploadTask.on('state_changed', (snapshot) => {
                         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        document.getElementById('progressBar').style.width = progress + '%';
-                        document.getElementById('progressPercent').textContent = Math.round(progress) + '%';
+                        document.getElementById('videoProgressBar').style.width = progress + '%';
+                        document.getElementById('videoProgressPercent').textContent = Math.round(progress) + '%';
                     });
                     
                     // Wait for upload completion
@@ -1146,6 +1317,7 @@ const firebaseConfig = {
             resetImageUpload() {
                 document.getElementById('imageUploadArea').style.display = 'block';
                 document.getElementById('imagePreview').style.display = 'none';
+                document.getElementById('imageUploadProgress').style.display = 'none';
                 document.getElementById('imageInput').value = '';
                 this.currentImage = null;
                 if (this.imageUploadTask) {
@@ -1153,7 +1325,7 @@ const firebaseConfig = {
                     this.imageUploadTask = null;
                 }
             }
-
+            
             validateImageFile(file) {
                 const maxSize = 10 * 1024 * 1024; // 10MB
                 const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -1170,7 +1342,7 @@ const firebaseConfig = {
                 
                 return true;
             }
-
+            
             handleImageSelection(file) {
                 if (!this.validateImageFile(file)) return;
                 
@@ -1193,6 +1365,9 @@ const firebaseConfig = {
                 if (!this.currentImage) return null;
 
                 try {
+                    // Show upload progress
+                    document.getElementById('imageUploadProgress').style.display = 'block';
+
                     // Create unique filename
                     const timestamp = Date.now();
                     const fileName = `images/${this.currentUser.uid}/${timestamp}_${this.currentImage.name}`;
@@ -1200,6 +1375,13 @@ const firebaseConfig = {
                     // Upload to Firebase Storage
                     const storageRef = storage.ref(fileName);
                     this.imageUploadTask = storageRef.put(this.currentImage);
+                    
+                    // Track upload progress
+                    this.imageUploadTask.on('state_changed', (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        document.getElementById('imageProgressBar').style.width = progress + '%';
+                        document.getElementById('imageProgressPercent').textContent = Math.round(progress) + '%';
+                    });
                     
                     // Wait for upload completion
                     await this.imageUploadTask;
@@ -1224,431 +1406,295 @@ const firebaseConfig = {
                 this.resetImageUpload();
                 this.showToast('🗑️ Image removed');
             }
-            
-            // Comments functionality
-            toggleComments(postId) {
-                const commentsSection = document.getElementById(`comments-${postId}`);
-                if (commentsSection.style.display === 'none') {
-                    commentsSection.style.display = 'block';
-                } else {
-                    commentsSection.style.display = 'none';
-                }
-            }
-            
-            async addComment(postId) {
-                const input = document.getElementById(`comment-input-${postId}`);
-                const content = input.value.trim();
-                
-                if (!content) {
-                    this.showToast('⚠️ Please write a reply!');
-                    return;
-                }
-                
-                try {
-                    const comment = {
-                        uid: this.currentUser.uid,
-                        author: this.currentUser.displayName,
-                        authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
-                        content: content,
-                        timestamp: new Date() // Use client-side timestamp for array elements
-                    };
-                    
-                    // Add comment to post
-                    await db.collection('posts').doc(postId).update({
-                        comments: firebase.firestore.FieldValue.arrayUnion(comment)
-                    });
-                    
-                    // Re-render posts to show the new comment immediately
-                    const postDoc = await db.collection('posts').doc(postId).get();
-                    this.renderPosts([postDoc]); // Re-render only the affected post
 
-                    // Add activity
-                    await db.collection('activity').add({
-                        uid: this.currentUser.uid,
-                        action: `${this.currentUser.displayName} replied to a post: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    input.value = '';
-                    this.showToast('✅ Reply posted!');
-                } catch (error) {
-                    console.error('Error adding comment:', error); // Log the full error object
-                    this.showToast('❌ Error posting reply. Try again.');
-                }
-            }
-
-            showToast(message) {
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.textContent = message;
-                document.body.appendChild(toast);
-                
-                setTimeout(() => toast.classList.add('show'), 100);
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                    setTimeout(() => document.body.removeChild(toast), 300);
-                }, 3000);
-            }
-
-            cleanup() {
-                // Clean up listeners
-                this.unsubscribes.forEach(unsubscribe => unsubscribe());
-                this.unsubscribes = [];
-                
-                // Remove presence
-                if (this.presenceRef) {
-                    this.presenceRef.remove();
-                    this.presenceRef = null;
-                }
-            }
-
-            // Profile Picture Methods
-            showProfilePictureModal() {
-                document.getElementById('profilePictureModal').classList.add('active');
-                document.getElementById('currentProfilePreview').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
-                this.resetProfilePictureModal();
+            // Generic File Upload Methods
+            showFileUpload() {
+                document.getElementById('fileUploadSection').style.display = 'block';
+                document.getElementById('addFileBtn').style.display = 'none';
             }
             
-            hideProfilePictureModal() {
-                document.getElementById('profilePictureModal').classList.remove('active');
-                this.resetProfilePictureModal();
+            hideFileUpload() {
+                document.getElementById('fileUploadSection').style.display = 'none';
+                document.getElementById('addFileBtn').style.display = 'block';
+                this.resetFileUpload();
             }
             
-            resetProfilePictureModal() {
-                document.getElementById('newImagePreview').style.display = 'none';
-                document.getElementById('profileUploadProgress').style.display = 'none';
-                document.getElementById('profileImageInput').value = '';
-                document.getElementById('updateProfilePicBtn').disabled = true;
-                this.selectedProfileImage = null;
-            }
-            
-            validateImageFile(file) { // This method is duplicated, will be removed later if not needed
-                const maxSize = 20 * 1024 * 1024; // Increased to 20MB since we'll compress it
-                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                
-                if (!allowedTypes.includes(file.type)) {
-                    this.showToast('❌ Please select a valid image file (JPG, PNG, GIF, WEBP)');
-                    return false;
+            resetFileUpload() {
+                document.getElementById('fileUploadArea').style.display = 'block';
+                document.getElementById('genericFilePreview').style.display = 'none';
+                document.getElementById('previewGenericImage').style.display = 'none';
+                document.getElementById('previewGenericVideo').style.display = 'none';
+                document.getElementById('genericFileDisplay').style.display = 'none';
+                document.getElementById('fileUploadProgress').style.display = 'none';
+                document.getElementById('fileInput').value = '';
+                this.currentFile = null;
+                if (this.fileUploadTask) {
+                    this.fileUploadTask.cancel();
+                    this.fileUploadTask = null;
                 }
+            }
+            
+            validateFile(file) {
+                const maxSize = 50 * 1024 * 1024; // 50MB for any file
                 
                 if (file.size > maxSize) {
-                    this.showToast('❌ Image file too large. Please select a file under 20MB');
+                    this.showToast('❌ File too large. Please select a file under 50MB');
                     return false;
                 }
                 
                 return true;
             }
             
-            // Enhanced image compression utility with progressive optimization
-            compressImage(file) {
-                return new Promise((resolve, reject) => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const img = new Image();
-                    
-                    img.onload = () => {
-                        // Optimized dimensions for profile pictures - smaller for faster processing
-                        const maxSize = 200; // Reduced from 250 for faster processing
-                        let { width, height } = img;
-                        
-                        // Calculate new dimensions maintaining aspect ratio
-                        if (width > height) {
-                            if (width > maxSize) {
-                                height = Math.round((height * maxSize) / width);
-                                width = maxSize;
-                            }
-                        } else {
-                            if (height > maxSize) {
-                                width = Math.round((width * maxSize) / height);
-                                height = maxSize;
-                            }
-                        }
-                        
-                        // Set canvas dimensions
-                        canvas.width = width;
-                        canvas.height = height;
-                        
-                        // Enhanced rendering with image smoothing
-                        ctx.imageSmoothingEnabled = true;
-                        ctx.imageSmoothingQuality = 'high';
-                        
-                        // Draw and compress image
-                        ctx.drawImage(img, 0, 0, width, height);
-                        
-                        // Smart quality based on file size
-                        let quality = 0.8; // Start with higher quality
-                        if (file.size > 2 * 1024 * 1024) quality = 0.7; // 2MB+
-                        if (file.size > 5 * 1024 * 1024) quality = 0.6; // 5MB+
-                        
-                        // Convert to blob with optimized compression
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                // Create a File object from the blob
-                                const compressedFile = new File([blob], 
-                                    file.name.replace(/\.[^/.]+$/, '.jpg'), // Always use .jpg extension
-                                    {
-                                        type: 'image/jpeg',
-                                        lastModified: Date.now()
-                                    }
-                                );
-                                resolve(compressedFile);
-                            } else {
-                                reject(new Error('Failed to compress image'));
-                            }
-                        }, 'image/jpeg', quality);
-                    };
-                    
-                    img.onerror = () => reject(new Error('Failed to load image'));
-                    img.src = URL.createObjectURL(file);
-                });
-            }
-            
-            handleProfileImageSelection(file) {
-                if (!this.validateImageFile(file)) return;
+            handleFileSelection(file) {
+                if (!this.validateFile(file)) return;
                 
-                // Show compression message
-                this.showToast('📷 Processing image...');
+                this.currentFile = file;
                 
-                // Compress and resize image before storing
-                this.compressImage(file).then(compressedFile => {
-                    this.selectedProfileImage = compressedFile;
-                    
-                    // Create preview URL
-                    const imageUrl = URL.createObjectURL(compressedFile);
-                    document.getElementById('previewNewImage').src = imageUrl;
-                    document.getElementById('newImagePreview').style.display = 'block';
-                    document.getElementById('updateProfilePicBtn').disabled = false;
-                    
-                    // Show size reduction info
-                    const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                    const compressedSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
-                    this.showToast(`✅ Image optimized: ${originalSizeMB}MB → ${compressedSizeMB}MB`);
-                }).catch(error => {
-                    console.error('Error compressing image:', error);
-                    // Fallback to original file if compression fails
-                    this.selectedProfileImage = file;
-                    const imageUrl = URL.createObjectURL(file);
-                    document.getElementById('previewNewImage').src = imageUrl;
-                    document.getElementById('newImagePreview').style.display = 'block';
-                    document.getElementById('updateProfilePicBtn').disabled = false;
-                    this.showToast('🖼️ Image ready to update.');
-                });
-            }
-            
-            async updateProfilePicture() {
-                if (!this.selectedProfileImage) {
-                    this.showToast('⚠️ Please select an image first!');
-                    return;
+                const fileType = file.type.split('/')[0];
+                const previewImage = document.getElementById('previewGenericImage');
+                const previewVideo = document.getElementById('previewGenericVideo');
+                const genericFileDisplay = document.getElementById('genericFileDisplay');
+
+                document.getElementById('fileUploadArea').style.display = 'none';
+                document.getElementById('genericFilePreview').style.display = 'block';
+                document.getElementById('displayGenericFileName').textContent = file.name;
+
+                if (fileType === 'image') {
+                    previewImage.src = URL.createObjectURL(file);
+                    previewImage.style.display = 'block';
+                    previewVideo.style.display = 'none';
+                    genericFileDisplay.style.display = 'none';
+                    this.showToast('🖼️ Image selected! Ready to post.');
+                } else if (fileType === 'video') {
+                    previewVideo.src = URL.createObjectURL(file);
+                    previewVideo.style.display = 'block';
+                    previewImage.style.display = 'none';
+                    genericFileDisplay.style.display = 'none';
+                    this.showToast('📹 Video selected! Ready to post.');
+                } else {
+                    previewImage.style.display = 'none';
+                    previewVideo.style.display = 'none';
+                    genericFileDisplay.style.display = 'block';
+                    document.getElementById('genericFileName').textContent = file.name;
+                    this.showToast('📄 File selected! Ready to post.');
                 }
-                
-                const updateBtn = document.getElementById('updateProfilePicBtn');
-                updateBtn.disabled = true;
-                updateBtn.textContent = 'Uploading...';
-                
-                // OPTIMISTIC UPDATE: Immediately update UI with selected image for instant feedback
-                const tempImageURL = URL.createObjectURL(this.selectedProfileImage);
-                const originalURLs = {
-                    profileAvatar: document.getElementById('profileAvatar').src,
-                    currentUserAvatar: document.getElementById('currentUserAvatar').src,
-                    postCreatorAvatar: document.getElementById('postCreatorAvatar').src
-                };
-                
-                // Apply optimistic updates immediately
-                document.getElementById('profileAvatar').src = tempImageURL;
-                document.getElementById('currentUserAvatar').src = tempImageURL;
-                document.getElementById('postCreatorAvatar').src = tempImageURL;
-                
-                // Add visual indicator that upload is in progress
-                const avatarElements = [
-                    document.getElementById('profileAvatar'),
-                    document.getElementById('currentUserAvatar')
-                ];
-                
-                avatarElements.forEach(el => {
-                    el.style.filter = 'brightness(0.7)';
-                    el.style.border = '2px solid #6366f1';
-                });
-                
-                this.showToast('📷 Updating profile picture...');
+            }
+            
+            async uploadFile() {
+                if (!this.currentFile) return null;
                 
                 try {
                     // Show upload progress
-                    document.getElementById('profileUploadProgress').style.display = 'block';
+                    document.getElementById('fileUploadProgress').style.display = 'block';
+                    
+                    // Determine storage path based on file type
+                    const fileType = this.currentFile.type.split('/')[0];
+                    let folder = 'other_files';
+                    if (fileType === 'image') {
+                        folder = 'images';
+                    } else if (fileType === 'video') {
+                        folder = 'videos';
+                    }
                     
                     // Create unique filename
                     const timestamp = Date.now();
-                    const fileName = `profile-pictures/${this.currentUser.uid}/${timestamp}_${this.selectedProfileImage.name}`;
+                    const fileName = `${folder}/${this.currentUser.uid}/${timestamp}_${this.currentFile.name}`;
                     
-                    // Upload to Firebase Storage with optimizations
+                    // Upload to Firebase Storage
                     const storageRef = storage.ref(fileName);
-                    this.profileUploadTask = storageRef.put(this.selectedProfileImage, {
-                        cacheControl: 'public,max-age=3600', // Cache for 1 hour
-                        customMetadata: {
-                            'uploadedBy': this.currentUser.uid,
-                            'compressed': 'true'
-                        }
+                    this.fileUploadTask = storageRef.put(this.currentFile);
+                    
+                    // Track upload progress
+                    this.fileUploadTask.on('state_changed', (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        document.getElementById('fileProgressBar').style.width = progress + '%';
+                        document.getElementById('fileProgressPercent').textContent = Math.round(progress) + '%';
                     });
                     
-                    // Enhanced upload progress tracking with time estimation
-                    let startTime = Date.now();
-                    this.profileUploadTask.on('state_changed', 
-                        (snapshot) => {
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            const currentTime = Date.now();
-                            const elapsedTime = (currentTime - startTime) / 1000; // seconds
-                            
-                            // Update progress bar and percentage
-                            document.getElementById('profileProgressBar').style.width = progress + '%';
-                            document.getElementById('profileProgressPercent').textContent = Math.round(progress) + '%';
-                            
-                            // Calculate and show estimated time remaining
-                            if (progress > 5) { // Only show estimate after 5% to avoid wild estimates
-                                const estimatedTotalTime = (elapsedTime / progress) * 100;
-                                const remainingTime = Math.max(0, estimatedTotalTime - elapsedTime);
-                                
-                                let timeText;
-                                if (remainingTime < 1) {
-                                    timeText = 'Almost done...';
-                                } else if (remainingTime < 60) {
-                                    timeText = `${Math.round(remainingTime)}s remaining`;
-                                } else {
-                                    timeText = `${Math.round(remainingTime / 60)}m remaining`;
-                                }
-                                
-                                // Update the uploading text with time estimate
-                                document.querySelector('#profileUploadProgress .text-gray-400').textContent = `Uploading... ${timeText}`;
-                            }
-                            
-                            // Show upload speed
-                            const bytesPerSecond = snapshot.bytesTransferred / elapsedTime;
-                            const speedText = this.formatUploadSpeed(bytesPerSecond);
-                            document.getElementById('profileProgressPercent').textContent = `${Math.round(progress)}% (${speedText})`;
-                        },
-                        (error) => {
-                            // Handle upload errors - revert optimistic updates
-                            console.error('Upload error:', error);
-                            this.revertOptimisticUpdates(originalURLs, avatarElements);
-                            
-                            if (error.code === 'storage/canceled') {
-                                this.showToast('🚫 Upload cancelled');
-                            } else {
-                                this.showToast('❌ Upload failed. Please try again.');
-                            }
-                        }
-                    );
-                    
                     // Wait for upload completion
-                    await this.profileUploadTask;
+                    await this.fileUploadTask;
                     
                     // Get download URL
                     const downloadURL = await storageRef.getDownloadURL();
                     
-                    // Update user profile in Firebase Auth
-                    await this.currentUser.updateProfile({
-                        photoURL: downloadURL
-                    });
+                    console.log('✅ File uploaded successfully:', downloadURL);
+                    return downloadURL;
                     
-                    // Update user document in Firestore
-                    await db.collection('users').doc(this.currentUser.uid).update({
-                        photoURL: downloadURL
-                    });
-                    
-                    // Update presence in Realtime Database
-                    if (this.presenceRef) {
-                        await this.presenceRef.update({
-                            photoURL: downloadURL
-                        });
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    this.showToast('❌ Failed to upload file. Please try again.');
+                    return null;
+                }
+            }
+            
+            removeFile() {
+                if (this.currentFile) {
+                    const fileType = this.currentFile.type.split('/')[0];
+                    if (fileType === 'image') {
+                        URL.revokeObjectURL(document.getElementById('previewGenericImage').src);
+                    } else if (fileType === 'video') {
+                        URL.revokeObjectURL(document.getElementById('previewGenericVideo').src);
                     }
-                    
-                    // Replace optimistic update with final URL and remove visual indicators
-                    document.getElementById('profileAvatar').src = downloadURL;
-                    document.getElementById('currentUserAvatar').src = downloadURL;
-                    document.getElementById('postCreatorAvatar').src = downloadURL;
-                    
-                    avatarElements.forEach(el => {
-                        el.style.filter = 'none';
-                        el.style.border = 'none';
-                    });
-                    
-                    // Clean up temporary URL
-                    URL.revokeObjectURL(tempImageURL);
-                    
-                    // Add activity
-                    await db.collection('activity').add({
-                        uid: this.currentUser.uid,
-                        action: `${this.currentUser.displayName} updated their profile picture`,
+                }
+                this.resetFileUpload();
+                this.showToast('🗑️ File removed');
+            }
+
+            getFileTypeColor(fileType) {
+                switch (fileType) {
+                    case 'image':
+                        return 'blue';
+                    case 'video':
+                        return 'purple';
+                    default:
+                        return 'gray';
+                }
+            }
+
+            getFileTypeTag(fileType) {
+                switch (fileType) {
+                    case 'image':
+                        return '🖼️';
+                    case 'video':
+                        return '📹';
+                    default:
+                        return '📄';
+                }
+            }
+
+            getMimeType(url) {
+                const extension = url.split('.').pop().toLowerCase();
+                switch (extension) {
+                    case 'mp4':
+                    case 'mov':
+                    case 'avi':
+                    case 'webm':
+                        return `video/${extension}`;
+                    case 'jpg':
+                    case 'jpeg':
+                    case 'png':
+                    case 'gif':
+                    case 'webp':
+                        return `image/${extension}`;
+                    default:
+                        return 'application/octet-stream';
+                }
+            }
+
+            getFileNameFromUrl(url) {
+                return url.split('/').pop();
+            }
+
+            // Private Messaging Methods
+            async startPrivateChat(recipientUid, recipientDisplayName, recipientPhotoURL) {
+                if (!this.currentUser) {
+                    this.showToast('Please sign in to start a private chat.');
+                    return;
+                }
+
+                this.currentChatRecipient = { uid: recipientUid, displayName: recipientDisplayName, photoURL: recipientPhotoURL };
+                
+                // Set recipient info in modal
+                document.getElementById('chatRecipientName').textContent = recipientDisplayName;
+                document.getElementById('chatRecipientAvatar').src = recipientPhotoURL || this.generateAvatar(recipientDisplayName);
+                document.getElementById('privateMessageModal').classList.add('active');
+                document.getElementById('chatMessages').innerHTML = '<div class="text-center text-gray-500 py-12"><div class="loading mx-auto mb-4"></div><p>Loading messages...</p></div>';
+                
+                // Construct conversation ID (lexicographically ordered for consistency)
+                const conversationId = [this.currentUser.uid, recipientUid].sort().join('_');
+
+                // Clean up previous listener if any
+                if (this.privateChatUnsubscribe) {
+                    this.privateChatUnsubscribe();
+                }
+
+                // Listen for new messages in real-time
+                const messagesRef = db.collection('private_chats').doc(conversationId).collection('messages').orderBy('timestamp', 'asc');
+                this.privateChatUnsubscribe = messagesRef.onSnapshot((snapshot) => {
+                    this.renderPrivateMessages(snapshot.docs);
+                    // Scroll to bottom of chat after new messages
+                    const chatMessagesDiv = document.getElementById('chatMessages');
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                }, (error) => {
+                    console.error("Error fetching private messages:", error);
+                    this.showToast("❌ Error loading private messages.");
+                });
+
+                // Clear input
+                document.getElementById('privateMessageInput').value = '';
+            }
+
+            async sendPrivateMessage() {
+                if (!this.currentUser || !this.currentChatRecipient) {
+                    this.showToast('Cannot send message without a recipient.');
+                    return;
+                }
+
+                const messageInput = document.getElementById('privateMessageInput');
+                const content = messageInput.value.trim();
+
+                if (!content) {
+                    this.showToast('Please type a message.');
+                    return;
+                }
+
+                try {
+                    const conversationId = [this.currentUser.uid, this.currentChatRecipient.uid].sort().join('_');
+                    const messagesCollectionRef = db.collection('private_chats').doc(conversationId).collection('messages');
+
+                    await messagesCollectionRef.add({
+                        senderId: this.currentUser.uid,
+                        senderName: this.currentUser.displayName,
+                        senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                        recipientId: this.currentChatRecipient.uid,
+                        content: content,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
-                    this.showToast('✅ Profile picture updated successfully!');
-                    this.hideProfilePictureModal();
-                    
-                    console.log('📷 Profile picture updated:', downloadURL);
+                    messageInput.value = '';
+                    // No toast needed, messages will appear via real-time listener
                     
                 } catch (error) {
-                    console.error('Error updating profile picture:', error);
-                    
-                    // Revert optimistic updates on error
-                    this.revertOptimisticUpdates(originalURLs, avatarElements);
-                    URL.revokeObjectURL(tempImageURL);
-                    
-                    this.showToast('❌ Failed to update profile picture. Please try again.');
-                } finally {
-                    updateBtn.disabled = false;
-                    updateBtn.textContent = 'Update Picture';
+                    console.error('Error sending private message:', error);
+                    this.showToast('❌ Failed to send message. Please try again.');
                 }
             }
-            
-            // Cancel profile upload method
-            cancelProfileUpload() {
-                if (this.profileUploadTask) {
-                    this.profileUploadTask.cancel();
-                    this.profileUploadTask = null;
-                    this.showToast('🚫 Upload cancelled');
+
+            renderPrivateMessages(messageDocs) {
+                const chatMessagesDiv = document.getElementById('chatMessages');
+                if (messageDocs.length === 0) {
+                    chatMessagesDiv.innerHTML = '<div class="text-center text-gray-500 py-12"><p class="text-sm">No messages yet. Start the conversation!</p></div>';
+                    return;
                 }
+
+                chatMessagesDiv.innerHTML = messageDocs.map(doc => {
+                    const message = doc.data();
+                    const isMyMessage = message.senderId === this.currentUser.uid;
+                    const timeAgo = this.getTimeAgo(message.timestamp?.toDate() || new Date());
+
+                    return `
+                        <div class="flex ${isMyMessage ? 'justify-end' : 'justify-start'}">
+                            <div class="flex items-end ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} space-x-2 ${isMyMessage ? 'space-x-reverse' : ''}">
+                                <img src="${message.senderPhoto}" alt="${message.senderName}" class="w-8 h-8 rounded-full flex-shrink-0">
+                                <div class="${isMyMessage ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} p-3 rounded-lg max-w-[75%]">
+                                    <p class="font-medium text-sm mb-1">${isMyMessage ? 'You' : message.senderName}</p>
+                                    <p class="text-sm break-words">${message.content}</p>
+                                    <p class="text-xs text-right mt-1 ${isMyMessage ? 'text-indigo-200' : 'text-gray-400'}">${timeAgo}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             }
-            
-            // Retry profile upload with exponential backoff
-            async retryProfileUpload(maxRetries = 3) {
-                for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                    try {
-                        this.showToast(`🔄 Retry attempt ${attempt}/${maxRetries}`);
-                        await this.updateProfilePicture();
-                        return; // Success, exit retry loop
-                    } catch (error) {
-                        console.error(`Upload attempt ${attempt} failed:`, error);
-                        if (attempt === maxRetries) {
-                            this.showToast('❌ All retry attempts failed. Please check your connection and try again.');
-                            return;
-                        }
-                        // Exponential backoff: wait 2^attempt seconds
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
+
+            hidePrivateChatModal() {
+                document.getElementById('privateMessageModal').classList.remove('active');
+                this.currentChatRecipient = null;
+                if (this.privateChatUnsubscribe) {
+                    this.privateChatUnsubscribe();
+                    this.privateChatUnsubscribe = null;
                 }
-            }
-            
-            // Helper method to format upload speed
-            formatUploadSpeed(bytesPerSecond) {
-                if (bytesPerSecond < 1024) {
-                    return `${Math.round(bytesPerSecond)} B/s`;
-                } else if (bytesPerSecond < 1024 * 1024) {
-                    return `${Math.round(bytesPerSecond / 1024)} KB/s`;
-                } else {
-                    return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
-                }
-            }
-            
-            // Helper method to revert optimistic updates
-            revertOptimisticUpdates(originalURLs, avatarElements) {
-                document.getElementById('profileAvatar').src = originalURLs.profileAvatar;
-                document.getElementById('currentUserAvatar').src = originalURLs.currentUserAvatar;
-                document.getElementById('postCreatorAvatar').src = originalURLs.postCreatorAvatar;
-                
-                avatarElements.forEach(el => {
-                    el.style.filter = 'none';
-                    el.style.border = 'none';
-                });
+                document.getElementById('chatMessages').innerHTML = ''; // Clear messages on close
             }
 
             setupEventListeners() {
@@ -1670,6 +1716,44 @@ const firebaseConfig = {
                 document.getElementById('removeVideoBtn').addEventListener('click', () => this.removeVideo());
                 document.getElementById('hideVideoBtn').addEventListener('click', () => this.hideVideoUpload());
                 
+                const videoInput = document.getElementById('videoInput');
+                videoInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleVideoSelection(e.target.files[0]);
+                    }
+                });
+                
+                const videoDropArea = document.getElementById('videoUploadArea');
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    videoDropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+                
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    videoDropArea.addEventListener(eventName, () => {
+                        videoDropArea.classList.add('drag-over');
+                    }, false);
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    videoDropArea.addEventListener(eventName, () => {
+                        videoDropArea.classList.remove('drag-over');
+                    }, false);
+                });
+                
+                videoDropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleVideoSelection(file);
+                    }
+                }, false);
+                
+                videoDropArea.addEventListener('click', () => {
+                    videoInput.click();
+                });
+
                 // Image upload
                 document.getElementById('addImageBtn').addEventListener('click', () => this.showImageUpload());
                 document.getElementById('removeImageBtn').addEventListener('click', () => this.removeImage());
@@ -1712,61 +1796,126 @@ const firebaseConfig = {
                 imageDropArea.addEventListener('click', () => {
                     imageInput.click();
                 });
-                
+
+                // Generic file upload
+                document.getElementById('addFileBtn').addEventListener('click', () => this.showFileUpload());
+                document.getElementById('removeGenericFileBtn').addEventListener('click', () => this.removeFile());
+                document.getElementById('hideFileBtn').addEventListener('click', () => this.hideFileUpload());
+
+                const fileInput = document.getElementById('fileInput');
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFileSelection(e.target.files[0]);
+                    }
+                });
+
+                const genericFileDropArea = document.getElementById('fileUploadArea');
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    genericFileDropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    genericFileDropArea.addEventListener(eventName, () => {
+                        genericFileDropArea.classList.add('drag-over');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    genericFileDropArea.addEventListener(eventName, () => {
+                        genericFileDropArea.classList.remove('drag-over');
+                    }, false);
+                });
+
+                genericFileDropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleFileSelection(file);
+                    }
+                }, false);
+
+                genericFileDropArea.addEventListener('click', () => {
+                    fileInput.click();
+                });
+
                 // Profile picture upload
                 document.getElementById('profileImageInput').addEventListener('change', (e) => {
                     if (e.target.files.length > 0) {
                         this.handleProfileImageSelection(e.target.files[0]);
                     }
                 });
-                
-                // Video input handling
-                const videoInput = document.getElementById('videoInput');
-                videoInput.addEventListener('change', (e) => {
-                    if (e.target.files.length > 0) {
-                        this.handleVideoSelection(e.target.files[0]);
-                    }
-                });
-                
-                // Drag and drop functionality
-                const dropArea = document.getElementById('videoUploadArea');
-                
-                // Prevent default behavior to allow drop
-                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                    dropArea.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }, false);
-                });
-                
-                // Visual feedback for drag events
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    dropArea.addEventListener(eventName, () => {
-                        dropArea.classList.add('drag-over');
-                    }, false);
-                });
-                
-                ['dragleave', 'drop'].forEach(eventName => {
-                    dropArea.addEventListener(eventName, () => {
-                        dropArea.classList.remove('drag-over');
-                    }, false);
-                });
-                
-                // Handle drop
-                dropArea.addEventListener('drop', (e) => {
-                    const file = e.dataTransfer.files[0];
-                    if (file) {
-                        this.handleVideoSelection(file);
-                    }
-                }, false);
-                
-                // Make the entire dropArea clickable
-                dropArea.addEventListener('click', () => {
-                    videoInput.click();
-                });
 
                 // Search input event listener
                 document.getElementById('searchInput').addEventListener('input', () => this.handleSearch());
+
+                // Private messaging event listeners
+                document.getElementById('sendPrivateMessageBtn').addEventListener('click', () => this.sendPrivateMessage());
+                document.getElementById('privateMessageInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent new line in input
+                        this.sendPrivateMessage();
+                    }
+                });
+
+                // New: Find User for Private Chat
+                document.getElementById('findUserBtn').addEventListener('click', () => this.findUserForPrivateChat());
+                document.getElementById('privateChatNameInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.findUserForPrivateChat();
+                    }
+                });
+            }
+
+            // New: Find User for Private Chat
+            async findUserForPrivateChat() {
+                const input = document.getElementById('privateChatNameInput');
+                const statusDiv = document.getElementById('privateChatStatus');
+                const userName = input.value.trim();
+
+                if (!userName) {
+                    statusDiv.textContent = 'Please enter a name.';
+                    statusDiv.className = 'text-sm mt-2 text-red-400';
+                    return;
+                }
+
+                statusDiv.textContent = 'Searching...';
+                statusDiv.className = 'text-sm mt-2 text-gray-400';
+
+                try {
+                    // Search Firestore for user by displayName (case-insensitive for better UX)
+                    const usersRef = db.collection('users');
+                    const querySnapshot = await usersRef
+                        .where('displayName', '>=', userName)
+                        .where('displayName', '<=', userName + '\uf8ff')
+                        .limit(1)
+                        .get();
+
+                    if (!querySnapshot.empty) {
+                        const userDoc = querySnapshot.docs[0];
+                        const user = userDoc.data();
+
+                        if (user.uid === this.currentUser.uid) {
+                            statusDiv.textContent = 'You cannot chat with yourself.';
+                            statusDiv.className = 'text-sm mt-2 text-yellow-400';
+                            return;
+                        }
+
+                        statusDiv.textContent = `Found ${user.displayName}. Starting chat...`;
+                        statusDiv.className = 'text-sm mt-2 text-green-400';
+                        this.startPrivateChat(user.uid, user.displayName, user.photoURL);
+                        input.value = ''; // Clear input after finding user
+                    } else {
+                        statusDiv.textContent = `User "${userName}" not found.`;
+                        statusDiv.className = 'text-sm mt-2 text-red-400';
+                    }
+                } catch (error) {
+                    console.error('Error searching for user:', error);
+                    statusDiv.textContent = 'Error searching for user.';
+                    statusDiv.className = 'text-sm mt-2 text-red-400';
+                }
             }
         }
 
