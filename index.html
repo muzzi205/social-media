@@ -597,6 +597,7 @@ const firebaseConfig = {
                 this.currentSearchQuery = ''; // To hold the current search query
                 this.currentChatRecipient = null; // To hold the details of the user currently being chatted with
                 this.privateChatUnsubscribe = null; // To store the unsubscribe function for private chat listener
+                this.currentChatRecipientId = null; // New: To track who the user is currently chatting with
                 this.init();
             }
 
@@ -618,6 +619,7 @@ const firebaseConfig = {
                         this.showMainApp();
                         this.setupPresence();
                         this.startRealtimeListeners();
+                        this.setupPrivateMessageNotifications(); // New: Setup listener for private message notifications
                     } else {
                         this.currentUser = null;
                         this.showAuthModal();
@@ -1593,6 +1595,7 @@ const firebaseConfig = {
                 }
 
                 this.currentChatRecipient = { uid: recipientUid, displayName: recipientDisplayName, photoURL: recipientPhotoURL };
+                this.currentChatRecipientId = recipientUid; // Set the current chat recipient ID
                 
                 // Set recipient info in modal
                 document.getElementById('chatRecipientName').textContent = recipientDisplayName;
@@ -1690,6 +1693,7 @@ const firebaseConfig = {
             hidePrivateChatModal() {
                 document.getElementById('privateMessageModal').classList.remove('active');
                 this.currentChatRecipient = null;
+                this.currentChatRecipientId = null; // Clear the current chat recipient ID
                 if (this.privateChatUnsubscribe) {
                     this.privateChatUnsubscribe();
                     this.privateChatUnsubscribe = null;
@@ -1915,6 +1919,68 @@ const firebaseConfig = {
                     console.error('Error searching for user:', error);
                     statusDiv.textContent = 'Error searching for user.';
                     statusDiv.className = 'text-sm mt-2 text-red-400';
+                }
+            }
+
+            // New: Private Message Notifications
+            setupPrivateMessageNotifications() {
+                if (!this.currentUser) return;
+
+                const myUid = this.currentUser.uid;
+                // Listen for new messages where the current user is the recipient
+                const messagesRef = db.collectionGroup('messages')
+                    .where('recipientId', '==', myUid)
+                    .orderBy('timestamp', 'desc') // Order by timestamp to get the latest
+                    .limit(1); // Only need the latest message for notification
+
+                this.unsubscribes.push(messagesRef.onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach(change => {
+                        if (change.type === 'added') {
+                            const message = change.doc.data();
+                            // Only show notification if the message is not from the currently open chat
+                            if (message.senderId !== this.currentChatRecipientId) {
+                                this.showToast(`💬 New message from ${message.senderName}`);
+                            }
+                        }
+                    });
+                }, (error) => {
+                    console.error("Error setting up private message notifications:", error);
+                }));
+            }
+
+            // New: Toggle Comments Section
+            toggleComments(postId) {
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                if (commentsSection) {
+                    commentsSection.style.display = commentsSection.style.display === 'none' || commentsSection.style.display === '' ? 'block' : 'none';
+                }
+            }
+
+            // New: Add Comment
+            async addComment(postId) {
+                const commentInput = document.getElementById(`comment-input-${postId}`);
+                const content = commentInput.value.trim();
+
+                if (!content) {
+                    this.showToast('Please write a comment.');
+                    return;
+                }
+
+                try {
+                    const postRef = db.collection('posts').doc(postId);
+                    await postRef.update({
+                        comments: firebase.firestore.FieldValue.arrayUnion({
+                            author: this.currentUser.displayName,
+                            authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                            content: content,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        })
+                    });
+                    commentInput.value = '';
+                    this.showToast('✅ Comment added!');
+                } catch (error) {
+                    console.error('Error adding comment:', error);
+                    this.showToast('❌ Failed to add comment.');
                 }
             }
         }
