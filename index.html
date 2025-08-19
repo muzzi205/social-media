@@ -697,7 +697,6 @@ const firebaseConfig = {
                 }
 
                 const usersList = Object.values(onlineUsers)
-                    .filter(user => user.uid !== this.currentUser.uid)
                     .map(user => `
                         <div class="flex items-center space-x-3 p-2 rounded-lg bg-gray-800/50">
                             <div class="relative">
