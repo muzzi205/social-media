@@ -261,6 +261,12 @@
                         <div id="onlineUsersList" class="space-y-3"></div>
                     </div>
 
+                    <!-- New Private Messages List -->
+                    <div class="glass-card rounded-xl p-6 mb-6" id="newPrivateMessagesContainer" style="display:none;">
+                        <h4 class="font-semibold text-white mb-4">New Private Messages</h4>
+                        <div id="newPrivateMessagesList" class="space-y-3"></div>
+                    </div>
+
                     <!-- Start a Private Chat -->
                     <div class="glass-card rounded-xl p-6 mb-6">
                         <h4 class="font-semibold text-white mb-4">Start Private Chat</h4>
@@ -597,7 +603,8 @@ const firebaseConfig = {
                 this.currentSearchQuery = ''; // To hold the current search query
                 this.currentChatRecipient = null; // To hold the details of the user currently being chatted with
                 this.privateChatUnsubscribe = null; // To store the unsubscribe function for private chat listener
-                this.currentChatRecipientId = null; // New: To track who the user is currently chatting with
+                this.currentChatRecipientId = null; // To track who the user is currently chatting with
+                this.newPrivateMessageSenders = new Set(); // New: To store UIDs of users who sent new private messages
                 this.init();
             }
 
@@ -619,7 +626,8 @@ const firebaseConfig = {
                         this.showMainApp();
                         this.setupPresence();
                         this.startRealtimeListeners();
-                        this.setupPrivateMessageNotifications(); // New: Setup listener for private message notifications
+                        this.setupPrivateMessageNotifications();
+                        this.renderNewPrivateMessagesList(); // New: Render the new private messages list on login
                     } else {
                         this.currentUser = null;
                         this.showAuthModal();
@@ -1651,6 +1659,10 @@ const firebaseConfig = {
                 this.currentChatRecipient = { uid: recipientUid, displayName: recipientDisplayName, photoURL: recipientPhotoURL };
                 this.currentChatRecipientId = recipientUid; // Set the current chat recipient ID
                 
+                // Remove this sender from the new private messages list when their chat is opened
+                this.newPrivateMessageSenders.delete(recipientUid);
+                this.renderNewPrivateMessagesList(); // Re-render the list
+
                 // Set recipient info in modal
                 document.getElementById('chatRecipientName').textContent = recipientDisplayName;
                 document.getElementById('chatRecipientAvatar').src = recipientPhotoURL || this.generateAvatar(recipientDisplayName);
@@ -1709,6 +1721,10 @@ const firebaseConfig = {
                     });
                     
                     messageInput.value = '';
+                    // If the sender replies, clear the recipient from their new messages list (if they were there)
+                    this.newPrivateMessageSenders.delete(this.currentChatRecipient.uid);
+                    this.renderNewPrivateMessagesList(); // Re-render the list
+
                     // No toast needed, messages will appear via real-time listener
                     
                 } catch (error) {
@@ -1997,12 +2013,23 @@ const firebaseConfig = {
                     snapshot.docChanges().forEach(change => {
                         if (change.type === 'added') {
                             const message = change.doc.data();
+                            
+                            // Do not show notification for messages sent by the current user
+                            if (message.senderId === myUid) {
+                                console.log("setupPrivateMessageNotifications: Message sent by current user. Not showing toast.");
+                                return;
+                            }
+
                             console.log("setupPrivateMessageNotifications: New message detected.", message.senderName, "content:", message.content, "Timestamp:", message.timestamp?.toDate());
                             console.log("setupPrivateMessageNotifications: Sender ID:", message.senderId, "Current Chat Recipient ID:", this.currentChatRecipientId);
                             
                             // Only show notification if the message is not from the currently open chat
                             if (message.senderId !== this.currentChatRecipientId) {
-                                this.showToast(`💬 New message from ${message.senderName}`, 'private_message', 10000); // 10 seconds, new type
+                                this.showToast(`💬 New message from ${message.senderName}`, 'private_message', 10000);
+                                console.log("setupPrivateMessageNotifications: Toast notification triggered for message from:", message.senderName);
+                                // Add sender to new private messages list
+                                this.newPrivateMessageSenders.add(message.senderId);
+                                this.renderNewPrivateMessagesList(); // Re-render the list
                             } else {
                                 console.log("setupPrivateMessageNotifications: Message from current chat recipient. Not showing toast.");
                             }
@@ -2047,6 +2074,47 @@ const firebaseConfig = {
                     console.error('Error adding comment:', error);
                     this.showToast('❌ Failed to add comment.');
                 }
+            }
+
+            // New: Render New Private Messages List
+            async renderNewPrivateMessagesList() {
+                const container = document.getElementById('newPrivateMessagesList');
+                const parentContainer = document.getElementById('newPrivateMessagesContainer');
+                
+                if (this.newPrivateMessageSenders.size === 0) {
+                    parentContainer.style.display = 'none';
+                    container.innerHTML = '';
+                    return;
+                }
+
+                parentContainer.style.display = 'block';
+                
+                let userHtml = '';
+                for (const senderId of this.newPrivateMessageSenders) {
+                    // Fetch user details for each sender
+                    const userDoc = await db.collection('users').doc(senderId).get();
+                    if (userDoc.exists) {
+                        const user = userDoc.data();
+                        userHtml += `
+                            <div class="flex items-center space-x-3 p-2 rounded-lg bg-fuchsia-800/50 hover:bg-fuchsia-700/50 cursor-pointer" 
+                                 onclick="socialHub.startPrivateChat('${user.uid}', '${user.displayName}', '${user.photoURL}')">
+                                <div class="relative">
+                                    <img src="${user.photoURL}" alt="${user.displayName}" class="w-8 h-8 rounded-full">
+                                    <div class="online-indicator absolute -bottom-1 -right-1 w-3 h-3 rounded-full"></div>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-white">${user.displayName}</p>
+                                    <p class="text-xs text-fuchsia-300">New Message</p>
+                                </div>
+                                <svg class="w-5 h-5 text-fuchsia-300" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"></path></svg>
+                            </div>
+                        `;
+                    } else {
+                        // If user document doesn't exist, remove from set
+                        this.newPrivateMessageSenders.delete(senderId);
+                    }
+                }
+                container.innerHTML = userHtml;
             }
         }
 
