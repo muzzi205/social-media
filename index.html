@@ -555,6 +555,7 @@
             <div class="mt-4 pt-4 border-t border-gray-700 flex items-center space-x-3">
                 <input type="text" id="privateMessageInput" placeholder="Type your message..." 
                        class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div id="privateChatUploadArea" class="w-full"></div>
                 <button id="sendPrivateMessageBtn" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">Send</button>
             </div>
         </div>
@@ -604,14 +605,16 @@ const firebaseConfig = {
                 this.currentChatRecipient = null; // To hold the details of the user currently being chatted with
                 this.privateChatUnsubscribe = null; // To store the unsubscribe function for private chat listener
                 this.currentChatRecipientId = null; // To track who the user is currently chatting with
-                this.newPrivateMessageSenders = new Set(); // New: To store UIDs of users who sent new private messages
+                this.newPrivateMessageSenders = new Set();
+                this.searchTimeout = null; // Initialize search timeout
+                this.currentPrivateChatFile = null; // Initialize for private chat file uploads
                 this.init();
             }
 
             async init() {
                 // Hide loading screen after Firebase init
                 setTimeout(() => {
-                    document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('loadingScreen').style.display = 'none';
                 }, 1000);
 
                 this.setupAuthListeners();
@@ -732,9 +735,7 @@ const firebaseConfig = {
                     // For partial matches, you'd need a third-party search service like Algolia or Elastic.
                     // This example performs a "starts with" search by using range queries.
                     postsQuery = db.collection('posts')
-                                    .where('content', '>=', this.currentSearchQuery)
-                                    .where('content', '<=', this.currentSearchQuery + '\\uf8ff')
-                                    .orderBy('content') // Order by content for efficient range query
+                                    .where('keywords', 'array-contains-any', this.currentSearchQuery.toLowerCase().split(' '))
                                     .limit(50);
                     this.showToast(`Searching for "${this.currentSearchQuery}"...`);
                 }
@@ -834,7 +835,8 @@ const firebaseConfig = {
                         comments: [],
                         hasFile: !!fileURL,
                         fileURL: fileURL,
-                        fileType: fileType
+                        fileType: fileType,
+                        keywords: this.generateKeywords(content)
                     };
 
                     // Add post to Firestore
@@ -1711,11 +1713,11 @@ const firebaseConfig = {
                     const messagesCollectionRef = db.collection('private_chats').doc(conversationId).collection('messages');
 
                     await messagesCollectionRef.add({
-                        senderId: this.currentUser.uid,
-                        senderName: this.currentUser.displayName,
-                        senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
-                        recipientId: this.currentChatRecipient.uid,
-                        content: content,
+                    senderId: this.currentUser.uid,
+                    senderName: this.currentUser.displayName,
+                    senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                    recipientId: this.currentChatRecipient.uid,
+                    content: content,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
@@ -1921,7 +1923,12 @@ const firebaseConfig = {
                 });
 
                 // Search input event listener
-                document.getElementById('searchInput').addEventListener('input', () => this.handleSearch());
+                document.getElementById('searchInput').addEventListener('input', () => {
+                    clearTimeout(this.searchTimeout);
+                    this.searchTimeout = setTimeout(() => {
+                        this.handleSearch();
+                    }, 300); // 300ms debounce time
+                });
 
                 // Private messaging event listeners
                 document.getElementById('sendPrivateMessageBtn').addEventListener('click', () => this.sendPrivateMessage());
@@ -2114,6 +2121,11 @@ const firebaseConfig = {
                     }
                 }
                 container.innerHTML = userHtml;
+            }
+
+            generateKeywords(text) {
+                const words = text.toLowerCase().match(/\b\w+\b/g);
+                return Array.from(new Set(words || []));
             }
         }
 
