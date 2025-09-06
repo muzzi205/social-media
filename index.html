@@ -553,10 +553,20 @@
             </div>
             
             <div class="mt-4 pt-4 border-t border-gray-700 flex items-center space-x-3">
-                <input type="text" id="privateMessageInput" placeholder="Type your message..." 
-                       class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <div id="privateChatUploadArea" class="w-full"></div>
-                <button id="sendPrivateMessageBtn" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">Send</button>
+          <!-- Upload buttons -->
+          <button id="privateAddImageBtn" title="Add Image" class="text-gray-400 hover:text-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4-4a2 2 0 012.828 0l4 4M4 8h16" /></svg></button>
+          <button id="privateAddVideoBtn" title="Add Video" class="text-gray-400 hover:text-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 6h16M4 18h16" /></svg></button>
+          <button id="privateAddFileBtn" title="Add File" class="text-gray-400 hover:text-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
+          <input type="file" id="privateImageInput" accept="image/*" class="hidden">
+          <input type="file" id="privateVideoInput" accept="video/*" class="hidden">
+          <input type="file" id="privateFileInput" class="hidden">
+          <input type="text" id="privateMessageInput" placeholder="Type your message..." 
+              class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <div id="privateChatUploadArea" class="w-full"></div>
+          <button id="sendPrivateMessageBtn" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">Send</button>
+         </div>
+         <!-- Preview and progress for uploads -->
+         <div id="privateUploadPreview" class="mt-2"></div>
             </div>
         </div>
     </div>
@@ -869,7 +879,7 @@ const firebaseConfig = {
                     this.showToast('✅ Posted live to all users!');
                 } catch (error) {
                     console.error('Error creating post:', error);
-                    this.showToast('❌ Error posting. Please try again.');
+                    this.showToast('❌ Error posting. Please try again.'
                 } finally {
                     // Re-enable button
                     createBtn.disabled = false;
