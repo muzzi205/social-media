@@ -551,36 +551,7 @@
             <div id="chatMessages" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                 <!-- Messages will be loaded here -->
             </div>
-
-            <!-- File upload buttons -->
-            <div class="flex items-center space-x-4 mb-4 pt-4 border-t border-gray-700">
-                <button id="privateChatVideoBtn" class="flex items-center space-x-2 text-indigo-400 hover:text-indigo-300 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
-                    <span>Video</span>
-                </button>
-
-                <button id="privateChatImageBtn" class="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                    </svg>
-                    <span>Image</span>
-                </button>
-
-                <button id="privateChatFileBtn" class="flex items-center space-x-2 text-gray-400 hover:text-gray-300 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    <span>File</span>
-                </button>
-            </div>
-
-            <!-- Hidden file inputs -->
-            <input type="file" id="privateChatVideoInput" accept="video/*" class="hidden">
-            <input type="file" id="privateChatImageInput" accept="image/*" class="hidden">
-            <input type="file" id="privateChatFileInput" class="hidden">
-
+            
             <div class="mt-4 pt-4 border-t border-gray-700 flex items-center space-x-3">
                 <input type="text" id="privateMessageInput" placeholder="Type your message..." 
                        class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -1763,85 +1734,6 @@ const firebaseConfig = {
                 }
             }
 
-            // Private chat attachment handlers
-            async handlePrivateChatVideoSelection(file) {
-                if (!this.validateVideoFile(file)) return;
-                await this.uploadAndSendPrivateAttachment(file, 'video');
-            }
-
-            async handlePrivateChatImageSelection(file) {
-                if (!this.validateImageFile(file)) return;
-                await this.uploadAndSendPrivateAttachment(file, 'image');
-            }
-
-            async handlePrivateChatFileSelection(file) {
-                if (!this.validateFile(file)) return;
-                await this.uploadAndSendPrivateAttachment(file, 'file');
-            }
-
-            async uploadAndSendPrivateAttachment(file, kind) {
-                if (!this.currentUser || !this.currentChatRecipient) {
-                    this.showToast('Open a private chat first.');
-                    return;
-                }
-
-                const conversationId = [this.currentUser.uid, this.currentChatRecipient.uid].sort().join('_');
-                const safeName = (file.name || 'file').replace(/[^\w.-]+/g, '_');
-                const timestamp = Date.now();
-                const path = `private_chats/${conversationId}/${kind}s/${timestamp}_${safeName}`;
-
-                const uploadArea = document.getElementById('privateChatUploadArea');
-                if (uploadArea) {
-                    uploadArea.innerHTML = `
-                        <div class="w-full mb-2">
-                            <div class="h-2 bg-gray-700 rounded">
-                                <div id="privateUploadBar" class="h-2 bg-indigo-500 rounded" style="width:0%"></div>
-                            </div>
-                            <p id="privateUploadText" class="text-xs text-gray-400 mt-1">Uploading ${safeName}...</p>
-                        </div>
-                    `;
-                }
-
-                try {
-                    const storageRef = storage.ref(path);
-                    const task = storageRef.put(file);
-
-                    task.on('state_changed', (snapshot) => {
-                        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-                        const bar = document.getElementById('privateUploadBar');
-                        const text = document.getElementById('privateUploadText');
-                        if (bar) bar.style.width = progress + '%';
-                        if (text) text.textContent = `Uploading ${safeName}... ${progress}%`;
-                    });
-
-                    await task;
-                    const url = await storageRef.getDownloadURL();
-
-                    const messagesCollectionRef = db.collection('private_chats').doc(conversationId).collection('messages');
-                    await messagesCollectionRef.add({
-                        senderId: this.currentUser.uid,
-                        senderName: this.currentUser.displayName,
-                        senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
-                        recipientId: this.currentChatRecipient.uid,
-                        content: '',
-                        attachmentType: kind,
-                        attachmentUrl: url,
-                        attachmentName: file.name || safeName,
-                        attachmentSize: file.size || null,
-                        attachmentContentType: file.type || null,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-
-                    if (uploadArea) uploadArea.innerHTML = '';
-                    this.showToast('✅ Sent attachment.');
-
-                } catch (error) {
-                    console.error('Error uploading/sending attachment:', error);
-                    if (uploadArea) uploadArea.innerHTML = '';
-                    this.showToast('❌ Failed to send attachment.');
-                }
-            }
-
             renderPrivateMessages(messageDocs) {
                 const chatMessagesDiv = document.getElementById('chatMessages');
                 if (messageDocs.length === 0) {
@@ -1854,34 +1746,13 @@ const firebaseConfig = {
                     const isMyMessage = message.senderId === this.currentUser.uid;
                     const timeAgo = this.getTimeAgo(message.timestamp?.toDate() || new Date());
 
-                    let attachmentHtml = '';
-                    if (message.attachmentType && message.attachmentUrl) {
-                        if (message.attachmentType === 'image') {
-                            attachmentHtml = `<img src="${message.attachmentUrl}" alt="${message.attachmentName || 'image'}" class="mt-1 max-w-full rounded-lg">`;
-                        } else if (message.attachmentType === 'video') {
-                            const videoType = message.attachmentContentType || 'video/mp4';
-                            attachmentHtml = `
-                                <video controls class="mt-1 max-w-full rounded-lg">
-                                    <source src="${message.attachmentUrl}" type="${videoType}">
-                                    Your browser does not support the video tag.
-                                </video>
-                            `;
-                        } else if (message.attachmentType === 'file') {
-                            const fileLabel = message.attachmentName || this.getFileNameFromUrl(message.attachmentUrl);
-                            attachmentHtml = `<a href="${message.attachmentUrl}" target="_blank" class="mt-1 inline-flex items-center text-sm underline">📎 ${fileLabel}</a>`;
-                        }
-                    }
-
-                    const textHtml = message.content ? `<p class=\"text-sm break-words\">${message.content}</p>` : '';
-
                     return `
                         <div class="flex ${isMyMessage ? 'justify-end' : 'justify-start'}">
                             <div class="flex items-end ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} space-x-2 ${isMyMessage ? 'space-x-reverse' : ''}">
                                 <img src="${message.senderPhoto}" alt="${message.senderName}" class="w-8 h-8 rounded-full flex-shrink-0">
                                 <div class="${isMyMessage ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} p-3 rounded-lg max-w-[75%]">
                                     <p class="font-medium text-sm mb-1">${isMyMessage ? 'You' : message.senderName}</p>
-                                    ${textHtml}
-                                    ${attachmentHtml}
+                                    <p class="text-sm break-words">${message.content}</p>
                                     <p class="text-xs text-right mt-1 ${isMyMessage ? 'text-indigo-200' : 'text-gray-400'}">${timeAgo}</p>
                                 </div>
                             </div>
@@ -2076,41 +1947,6 @@ const firebaseConfig = {
                         this.findUserForPrivateChat();
                     }
                 });
-
-                // Private Chat: open file pickers
-                const privateVideoBtn = document.getElementById('privateChatVideoBtn');
-                const privateImageBtn = document.getElementById('privateChatImageBtn');
-                const privateFileBtn = document.getElementById('privateChatFileBtn');
-                const privateVideoInput = document.getElementById('privateChatVideoInput');
-                const privateImageInput = document.getElementById('privateChatImageInput');
-                const privateFileInput = document.getElementById('privateChatFileInput');
-
-                if (privateVideoBtn && privateVideoInput) {
-                    privateVideoBtn.addEventListener('click', () => privateVideoInput.click());
-                    privateVideoInput.addEventListener('change', (e) => {
-                        const file = e.target.files && e.target.files[0];
-                        if (file) this.handlePrivateChatVideoSelection(file);
-                        e.target.value = '';
-                    });
-                }
-
-                if (privateImageBtn && privateImageInput) {
-                    privateImageBtn.addEventListener('click', () => privateImageInput.click());
-                    privateImageInput.addEventListener('change', (e) => {
-                        const file = e.target.files && e.target.files[0];
-                        if (file) this.handlePrivateChatImageSelection(file);
-                        e.target.value = '';
-                    });
-                }
-
-                if (privateFileBtn && privateFileInput) {
-                    privateFileBtn.addEventListener('click', () => privateFileInput.click());
-                    privateFileInput.addEventListener('change', (e) => {
-                        const file = e.target.files && e.target.files[0];
-                        if (file) this.handlePrivateChatFileSelection(file);
-                        e.target.value = '';
-                    });
-                }
             }
 
             // New: Find User for Private Chat
