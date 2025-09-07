@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialHub</title>
+    <link rel="icon" href="./favicon.png" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #0a0a0a;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        
+        .post-card {
+            transition: all 0.3s ease;
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+        
+        .glass-card {
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .online-indicator {
+            background: #10b981;
+            border: 2px solid #1a1a1a;
+        }
+        
+        .away-indicator {
+            background: #f59e0b;
+            border: 2px solid #1a1a1a;
+        }
+        
+        .offline-indicator {
+            background: #6b7280;
+            border: 2px solid #1a1a1a;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: white;
+            z-index: 1001;
+            backdrop-filter: blur(20px);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .video-upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: rgba(55, 65, 81, 0.3);
+        }
+        
+        .video-upload-area:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .video-upload-area.drag-over {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        .video-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            background: #000;
+        }
+        
+        .upload-progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+
+        /* Custom scrollbar for chat messages */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="loading mx-auto mb-4"></div>
+            <h2 class="text-xl font-semibold mb-2">Connecting to Firebase...</h2>
+            <p class="text-gray-400">Setting up real-time features</p>
+        </div>
+    </div>
+    
+    <!-- Authentication Modal -->
+    <div id="authModal" class="modal active">
+        <div class="glass-card rounded-xl p-8 max-w-md w-11/12 mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-center">Join SocialHub</h2>
+            <div id="authContent">
+                <div class="space-y-4">
+                    <input type="email" id="emailInput" placeholder="Email" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    <input type="password" id="passwordInput" placeholder="Password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    <input type="text" id="displayNameInput" placeholder="Your Name" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    <button id="signUpBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors">Sign Up</button>
+                    <button id="signInBtn" class="w-full bg-gray-700 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors">Sign In</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until authenticated) -->
+    <div id="mainApp" style="display: none;">
+        <!-- Navigation -->
+        <nav class="glass-card fixed w-full top-0 z-40 py-3 sm:py-4">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex flex-col sm:flex-row justify-between items-center h-auto sm:h-16">
+                    <div class="flex items-center justify-between w-full sm:w-auto mb-2 sm:mb-0">
+                        <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SocialHub</h1>
+                        <span class="ml-3 text-sm text-green-400">🟢 LIVE</span>
+                    </div>
+                    <!-- Search Bar -->
+                    <div class="flex-1 w-full sm:w-auto flex justify-center mx-0 sm:mx-4 mb-2 sm:mb-0">
+                        <input type="text" id="searchInput" placeholder="Search posts..." class="w-full max-w-md bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400">
+                    </div>
+                    
+                    <div class="flex items-center space-x-3 sm:space-x-6 w-full sm:w-auto justify-between sm:justify-start">
+                        <div id="onlineUsersCount" class="text-sm text-gray-400">
+                            <span class="text-green-400">●</span> <span id="userCount">0</span> online
+                        </div>
+                        
+                        <div class="flex items-center space-x-3">
+                            <img id="currentUserAvatar" src="" alt="Profile" class="w-8 h-8 rounded-full">
+                            <div class="hidden sm:block"> <!-- Hide on small screens to save space -->
+                                <span id="currentUserName" class="font-medium text-gray-300"></span>
+                                <div class="text-xs text-green-400">Online</div>
+                            </div>
+                            <button id="signOutBtn" class="text-red-400 hover:text-red-300 text-sm py-1 px-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors">Sign Out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="pt-16 sm:pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
+                <!-- Left Sidebar -->
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <div class="text-center">
+                            <div class="relative inline-block mb-4">
+                                <img id="profileAvatar" src="" alt="Profile" class="w-20 h-20 rounded-full mx-auto cursor-pointer hover:opacity-80 transition-opacity" onclick="socialHub.showProfilePictureModal()">
+                                <button onclick="socialHub.showProfilePictureModal()" class="absolute -bottom-1 -right-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-7 h-7 flex items-center justify-center transition-colors" title="Change profile picture">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <h3 id="profileName" class="font-semibold text-white"></h3>
+                            <p id="profileEmail" class="text-gray-400 text-sm"></p>
+                            <div class="flex justify-center space-x-4 mt-4 text-sm">
+                                <div class="text-center">
+                                    <div id="myPostsCount" class="font-semibold text-white">0</div>
+                                    <div class="text-gray-400">Posts</div>
+                                </div>
+                                <div class="text-center">
+                                    <div id="totalLikesCount" class="font-semibold text-white">0</div>
+                                    <div class="text-gray-400">Likes</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Online Users -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <h4 class="font-semibold text-white mb-4">Online Users</h4>
+                        <div id="onlineUsersList" class="space-y-3"></div>
+                    </div>
+
+                    <!-- New Private Messages List -->
+                    <div class="glass-card rounded-xl p-6 mb-6" id="newPrivateMessagesContainer" style="display:none;">
+                        <h4 class="font-semibold text-white mb-4">New Private Messages</h4>
+                        <div id="newPrivateMessagesList" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Start a Private Chat -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <h4 class="font-semibold text-white mb-4">Start Private Chat</h4>
+                        <div class="flex space-x-2 items-center">
+                            <input type="text" id="privateChatNameInput" placeholder="Enter user's name" class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button id="findUserBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition-colors flex-shrink-0">Find</button>
+                        </div>
+                        <p id="privateChatStatus" class="text-sm mt-2 text-gray-400"></p>
+                    </div>
+                </div>
+
+                <!-- Main Feed -->
+                <div class="lg:col-span-2">
+                    <!-- Create Post -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <img id="postCreatorAvatar" src="" alt="Profile" class="w-10 h-10 rounded-full">
+                            <textarea id="postInput" placeholder="What's happening? Share with everyone online!" rows="3" class="flex-1 bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400 resize-none"></textarea>
+                        </div>
+                        
+                        <!-- Video Upload Section -->
+                        <div id="videoUploadSection" class="mb-4" style="display: none;">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-gray-300">Add Video to Post</h4>
+                                <button id="hideVideoBtn" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide video upload">
+                                    <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="videoUploadArea" class="video-upload-area">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <p class="text-gray-400 mb-2">Drag and drop a video here or click to select</p>
+                                    <p class="text-xs text-gray-500">MP4, MOV, AVI files up to 50MB</p>
+                                    <input type="file" id="videoInput" accept="video/*" class="hidden">
+                                </div>
+                            </div>
+                            
+                            <!-- Video Preview -->
+                            <div id="videoPreview" class="mt-4" style="display: none;">
+                                <video id="previewVideo" class="video-preview w-full" controls></video>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span id="videoFileName" class="text-sm text-gray-400"></span>
+                                    <button id="removeVideoBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Progress -->
+                            <div id="videoUploadProgress" class="mt-4" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">Uploading video...</span>
+                                    <span id="videoProgressPercent" class="text-sm text-indigo-400">0%</span>
+                                </div>
+                                <div class="upload-progress">
+                                    <div id="videoProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Image Upload Section -->
+                        <div id="imageUploadSection" class="mb-4" style="display: none;">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-gray-300">Add Image to Post</h4>
+                                <button id="hideImageBtn" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide image upload">
+                                    <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="imageUploadArea" class="video-upload-area"> <!-- Reusing video-upload-area styles -->
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <p class="text-gray-400 mb-2">Drag and drop an image here or click to select</p>
+                                    <p class="text-xs text-gray-500">JPG, PNG, GIF, WEBP files up to 10MB</p>
+                                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                                </div>
+                            </div>
+                            
+                            <!-- Image Preview -->
+                            <div id="imagePreview" class="mt-4" style="display: none;">
+                                <img id="previewImage" class="video-preview w-full" alt="Image Preview"> <!-- Reusing video-preview styles -->
+                                <div class="flex items-center justify-between mt-2">
+                                    <span id="imageFileName" class="text-sm text-gray-400"></span>
+                                    <button id="removeImageBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                                </div>
+                            </div>
+                            <!-- Upload Progress for Image -->
+                            <div id="imageUploadProgress" class="mt-4" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">Uploading image...</span>
+                                    <span id="imageProgressPercent" class="text-sm text-indigo-400">0%</span>
+                                </div>
+                                <div class="upload-progress">
+                                    <div id="imageProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Generic File Upload Section -->
+                        <div id="fileUploadSection" class="mb-4" style="display: none;">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-gray-300">Add Any File to Post</h4>
+                                <button id="hideFileBtn" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide file upload">
+                                    <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="fileUploadArea" class="video-upload-area">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    <p class="text-gray-400 mb-2">Drag and drop any file here or click to select</p>
+                                    <p class="text-xs text-gray-500">Max size 50MB (PDFs, Docs, Zips, etc.)</p>
+                                    <input type="file" id="fileInput" accept="*/*" class="hidden">
+                                </div>
+                            </div>
+                            
+                            <!-- File Preview -->
+                            <div id="genericFilePreview" class="mt-4" style="display: none;">
+                                <img id="previewGenericImage" class="video-preview w-full" alt="File Preview" style="display: none;">
+                                <video id="previewGenericVideo" class="video-preview w-full" controls style="display: none;"></video>
+                                <div id="genericFileDisplay" class="p-4 bg-gray-800 rounded-lg text-gray-400 text-center" style="display: none;">
+                                    <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p class="font-medium">Attached File</p>
+                                    <span id="genericFileName" class="text-sm"></span>
+                                </div>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span id="displayGenericFileName" class="text-sm text-gray-400"></span>
+                                    <button id="removeGenericFileBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Progress for Generic File -->
+                            <div id="fileUploadProgress" class="mt-4" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">Uploading file...</span>
+                                    <span id="fileProgressPercent" class="text-sm text-indigo-400">0%</span>
+                                </div>
+                                <div class="upload-progress">
+                                    <div id="fileProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-10">
+                                <button id="addVideoBtn" class="flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span>Add Video</span>
+                                </button>
+                                <button id="addImageBtn" class="flex items-center space-x-1 text-blue-400 hover:text-blue-300 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span>Add Image</span>
+                                </button>
+                                <button id="addFileBtn" class="flex items-center space-x-1 text-gray-400 hover:text-gray-300 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    <span>Add File</span>
+                                </button>
+                            </div>
+                            <button id="createPostBtn" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">
+                                Post Live
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Posts Feed -->
+                    <div id="postsContainer" class="space-y-6">
+                        <div class="text-center text-gray-500 py-12">
+                            <div class="loading mx-auto mb-4"></div>
+                            <h3 class="text-xl font-semibold mb-2">Loading live posts...</h3>
+                            <p>Connecting to real-time database</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Sidebar -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Live Activity -->
+                    <div class="glass-card rounded-xl p-6 mb-6">
+                        <h4 class="font-semibold text-white mb-4">Live Activity</h4>
+                        <div id="liveActivity" class="space-y-3 text-sm"></div>
+                    </div>
+
+                    <!-- Recent Posts Stats -->
+                    <div class="glass-card rounded-xl p-6">
+                        <h4 class="font-semibold text-white mb-4">Live Stats</h4>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Total Posts:</span>
+                                <span id="totalPostsCount" class="text-white">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Active Users:</span>
+                                <span id="activeUsersCount" class="text-green-400">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Posts Today:</span>
+                                <span id="todayPostsCount" class="text-blue-400">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Picture Change Modal -->
+    <div id="profilePictureModal" class="modal">
+        <div class="glass-card rounded-xl p-8 max-w-md w-11/12 mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-center">Change Profile Picture</h2>
+            <div class="text-center mb-6">
+                <img id="currentProfilePreview" src="" alt="Current Profile" class="w-24 h-24 rounded-full mx-auto mb-4">
+                <p class="text-gray-400 text-sm">Current profile picture</p>
+            </div>
+            
+            <!-- Image Upload Area -->
+            <div id="imageUploadArea" class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center mb-4 cursor-pointer hover:border-indigo-500 transition-colors" onclick="document.getElementById('profileImageInput').click()">
+                <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                <p class="text-gray-400 mb-2">Click to select a new profile picture</p>
+                <p class="text-xs text-gray-500">JPG, PNG, GIF up to 5MB</p>
+                <input type="file" id="profileImageInput" accept="image/*" class="hidden">
+            </div>
+            
+            <!-- Image Preview -->
+            <div id="newImagePreview" class="mb-4" style="display: none;">
+                <div class="text-center mb-4">
+                    <img id="previewNewImage" src="" alt="New Profile" class="w-24 h-24 rounded-full mx-auto">
+                    <p class="text-gray-400 text-sm mt-2">New profile picture preview</p>
+                </div>
+            </div>
+            
+            <!-- Upload Progress -->
+            <div id="profileUploadProgress" class="mb-4" style="display: none;">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-400">Uploading...</span>
+                    <div class="flex items-center space-x-2">
+                        <span id="profileProgressPercent" class="text-sm text-indigo-400">0%</span>
+                        <button id="cancelProfileUploadBtn" onclick="socialHub.cancelProfileUpload()" class="text-red-400 hover:text-red-300 text-xs">Cancel</button>
+                    </div>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-2">
+                    <div id="profileProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Buttons -->
+            <div class="flex space-x-3">
+                <button onclick="socialHub.hideProfilePictureModal()" class="flex-1 bg-gray-700 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+                <button id="updateProfilePicBtn" onclick="socialHub.updateProfilePicture()" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors" disabled>Update Picture</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Private Message Modal -->
+    <div id="privateMessageModal" class="modal">
+        <div class="glass-card rounded-xl p-8 max-w-lg w-11/12 mx-auto flex flex-col h-[80vh]">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-700 mb-4">
+                <div class="flex items-center space-x-3">
+                    <img id="chatRecipientAvatar" src="" alt="" class="w-10 h-10 rounded-full">
+                    <h3 id="chatRecipientName" class="font-semibold text-white text-lg"></h3>
+                </div>
+                <button onclick="socialHub.hidePrivateChatModal()" class="text-gray-400 hover:text-gray-300 transition-colors text-sm">Close</button>
+            </div>
+            
+            <div id="chatMessages" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                <!-- Messages will be loaded here -->
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-700 flex items-center space-x-3">
+                <input type="text" id="privateMessageInput" placeholder="Type your message..." 
+                       class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div id="privateChatUploadArea" class="w-full"></div>
+                <button id="sendPrivateMessageBtn" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+const firebaseConfig = {
+  apiKey: "AIzaSyAEWurFdnvGdsbJUYCXAncijOxvgE-y2R4",
+  authDomain: "socialhub-app-38104.firebaseapp.com",
+  databaseURL: "https://socialhub-app-38104-default-rtdb.firebaseio.com",
+  projectId: "socialhub-app-38104",
+  storageBucket: "socialhub-app-38104.firebasestorage.app",
+  messagingSenderId: "740180240359",
+  appId: "1:740180240359:web:48ffeb2760c4cff88d3f42",
+  measurementId: "G-8DT3WVGV24"
+};
+
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const realtimeDb = firebase.database();
+        const storage = firebase.storage();
+        
+        // Test Firebase connectivity
+        console.log('🔥 Firebase initialized successfully');
+        console.log('📊 Firestore:', db ? '✅ Connected' : '❌ Failed');
+        console.log('🔐 Auth:', auth ? '✅ Connected' : '❌ Failed');
+        console.log('⚡ Realtime DB:', realtimeDb ? '✅ Connected' : '❌ Failed');
+        console.log('📁 Storage:', storage ? '✅ Connected' : '❌ Failed');
+
+        class RealSocialHub {
+            constructor() {
+                this.currentUser = null;
+                this.unsubscribes = [];
+                this.presenceRef = null;
+                this.currentVideo = null; // To hold the selected video file
+                this.uploadTask = null; // To track video upload progress
+                this.currentImage = null; // To hold the selected image file
+                this.imageUploadTask = null; // To track image upload progress
+                this.currentFile = null; // To hold the selected generic file
+                this.fileUploadTask = null; // To track generic file upload progress
+                this.profileUploadTask = null;
+                this.currentSearchQuery = ''; // To hold the current search query
+                this.currentChatRecipient = null; // To hold the details of the user currently being chatted with
+                this.privateChatUnsubscribe = null; // To store the unsubscribe function for private chat listener
+                this.currentChatRecipientId = null; // To track who the user is currently chatting with
+                this.newPrivateMessageSenders = new Set();
+                this.searchTimeout = null; // Initialize search timeout
+                this.currentPrivateChatFile = null; // Initialize for private chat file uploads
+                this.init();
+            }
+
+            async init() {
+                // Hide loading screen after Firebase init
+                setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+                }, 1000);
+
+                this.setupAuthListeners();
+                this.setupEventListeners();
+            }
+
+            setupAuthListeners() {
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        this.currentUser = user;
+                        await this.initializeUser();
+                        this.showMainApp();
+                        this.setupPresence();
+                        this.startRealtimeListeners();
+                        this.setupPrivateMessageNotifications();
+                        this.renderNewPrivateMessagesList(); // New: Render the new private messages list on login
+                    } else {
+                        this.currentUser = null;
+                        this.showAuthModal();
+                        this.cleanup();
+                    }
+                });
+            }
+
+            async initializeUser() {
+                const userRef = db.collection('users').doc(this.currentUser.uid);
+                
+                // Create or update user document
+                await userRef.set({
+                    uid: this.currentUser.uid,
+                    email: this.currentUser.email,
+                    displayName: this.currentUser.displayName || 'Anonymous',
+                    photoURL: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName || 'A'),
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+                    isOnline: true,
+                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                // Update UI
+                document.getElementById('currentUserName').textContent = this.currentUser.displayName;
+                document.getElementById('currentUserAvatar').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
+                document.getElementById('profileName').textContent = this.currentUser.displayName;
+                document.getElementById('profileEmail').textContent = this.currentUser.email;
+                document.getElementById('profileAvatar').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
+                document.getElementById('postCreatorAvatar').src = this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName);
+            }
+
+            setupPresence() {
+                // Real-time presence using Firebase Realtime Database
+                this.presenceRef = realtimeDb.ref(`presence/${this.currentUser.uid}`);
+                
+                // Set user online
+                this.presenceRef.set({
+                    uid: this.currentUser.uid,
+                    displayName: this.currentUser.displayName,
+                    photoURL: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    isOnline: true
+                });
+
+                // Remove presence when user disconnects
+                this.presenceRef.onDisconnect().remove();
+
+                // Listen to all online users
+                realtimeDb.ref('presence').on('value', (snapshot) => {
+                    const onlineUsers = snapshot.val() || {};
+                    this.updateOnlineUsersList(onlineUsers);
+                });
+            }
+
+            updateOnlineUsersList(onlineUsers) {
+                const container = document.getElementById('onlineUsersList');
+                const userCount = Object.keys(onlineUsers).length;
+                
+                document.getElementById('userCount').textContent = userCount;
+                const activeUsersElement = document.getElementById('activeUsers');
+                if (activeUsersElement) {
+                    activeUsersElement.textContent = userCount;
+                }
+                const activeUsersCountElement = document.getElementById('activeUsersCount');
+                if (activeUsersCountElement) {
+                    activeUsersCountElement.textContent = userCount;
+                }
+
+                const usersList = Object.values(onlineUsers)
+                    .map(user => `
+                        <div class="flex items-center space-x-3 p-2 rounded-lg bg-gray-800/50">
+                            <div class="relative">
+                                <img src="${user.photoURL}" alt="${user.displayName}" class="w-8 h-8 rounded-full">
+                                <div class="online-indicator absolute -bottom-1 -right-1 w-3 h-3 rounded-full"></div>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-white">${user.displayName}</p>
+                                <p class="text-xs text-green-400">Online now</p>
+                            </div>
+                            <button onclick="socialHub.startPrivateChat(${JSON.stringify(user.uid)}, ${JSON.stringify(user.displayName)}, ${JSON.stringify(user.photoURL)})" class="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded-full transition-colors">Message</button>
+                        </div>
+                    `).join('');
+
+                if (usersList) {
+                    container.innerHTML = usersList;
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-500 py-4">
+                            <p class="text-sm">You're the only one online</p>
+                            <p class="text-xs">Share the app to see friends!</p>
+                        </div>
+                    `;
+                }
+            }
+
+            startRealtimeListeners() {
+                // Listen to posts in real-time
+                let postsQuery = db.collection('posts').orderBy('timestamp', 'desc').limit(50);
+
+                if (this.currentSearchQuery) {
+                    // Basic search by content (you'd need more advanced indexing for full-text search)
+                    // For partial matches, you'd need a third-party search service like Algolia or Elastic.
+                    // This example performs a "starts with" search by using range queries.
+                    postsQuery = db.collection('posts')
+                                    .where('keywords', 'array-contains-any', this.currentSearchQuery.toLowerCase().split(' '))
+                                    .limit(50);
+                    this.showToast(`Searching for "${this.currentSearchQuery}"...`);
+                }
+
+                this.unsubscribes.push(
+                    postsQuery.onSnapshot((snapshot) => {
+                        this.renderPosts(snapshot.docs);
+                        this.updateStats();
+                    }, (error) => {
+                        console.error("Error fetching posts:", error);
+                        this.showToast("❌ Error fetching posts. Search might be limited.");
+                    })
+                );
+
+                // Listen to activity
+                const activityRef = db.collection('activity').orderBy('timestamp', 'desc').limit(20);
+                this.unsubscribes.push(
+                    activityRef.onSnapshot((snapshot) => {
+                        this.renderActivity(snapshot.docs);
+                    })
+                );
+            }
+
+            // New: Search functionality
+            async handleSearch() {
+                const searchInput = document.getElementById('searchInput');
+                const query = searchInput.value.trim();
+
+                if (query === this.currentSearchQuery) return; // No change, do nothing
+
+                this.currentSearchQuery = query;
+
+                // Clear previous posts and show loading
+                document.getElementById('postsContainer').innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <div class="loading mx-auto mb-4"></div>
+                        <h3 class="text-xl font-semibold mb-2">${query ? `Searching for "${query}"...` : 'Loading live posts...'}</h3>
+                        <p>${query ? 'Results will appear here shortly.' : 'Connecting to real-time database'}</p>
+                    </div>
+                `;
+
+                // Re-establish listeners with new query
+                this.unsubscribes.forEach(unsubscribe => unsubscribe()); // Unsubscribe old listeners
+                this.unsubscribes = []; // Clear array
+                this.startRealtimeListeners(); // Start new listeners with search query
+            }
+
+            async createPost() {
+                const input = document.getElementById('postInput');
+                const content = input.value.trim();
+                const createBtn = document.getElementById('createPostBtn');
+
+                if (!content && !this.currentVideo && !this.currentImage && !this.currentFile) {
+                    this.showToast('⚠️ Please write something, add a video, image, or any file!');
+                    return;
+                }
+
+                // Disable button and show loading
+                createBtn.disabled = true;
+                createBtn.innerHTML = '<div class="loading"></div> Posting...';
+
+                try {
+                    let fileURL = null;
+                    let fileType = null;
+                    
+                    if (this.currentVideo) {
+                        this.showToast('Uploading video...');
+                        fileURL = await this.uploadVideo();
+                        fileType = 'video';
+                        if (!fileURL) throw new Error('Video upload failed');
+                    } else if (this.currentImage) {
+                        this.showToast('Uploading image...');
+                        fileURL = await this.uploadImage();
+                        fileType = 'image';
+                        if (!fileURL) throw new Error('Image upload failed');
+                    } else if (this.currentFile) {
+                        this.showToast('Uploading file...');
+                        fileURL = await this.uploadFile();
+                        // For generic files, determine type based on MIME for activity message
+                        const mimeType = this.currentFile.type.split('/')[0];
+                        if (mimeType === 'image' || mimeType === 'video') {
+                            fileType = mimeType;
+                        } else {
+                            fileType = 'other_file';
+                        }
+                        if (!fileURL) throw new Error('File upload failed');
+                    }
+
+                    const postData = {
+                        uid: this.currentUser.uid,
+                        author: this.currentUser.displayName,
+                        authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                        content: content || '',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        likes: [],
+                        likeCount: 0,
+                        comments: [],
+                        hasFile: !!fileURL,
+                        fileURL: fileURL,
+                        fileType: fileType,
+                        keywords: this.generateKeywords(content)
+                    };
+
+                    // Add post to Firestore
+                    await db.collection('posts').add(postData);
+
+                    // Create activity message
+                    let activityMsg;
+                    if (fileType === 'video') {
+                        activityMsg = `${this.currentUser.displayName} posted a video: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
+                    } else if (fileType === 'image') {
+                        activityMsg = `${this.currentUser.displayName} posted an image: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
+                    } else if (fileType === 'other_file') {
+                        activityMsg = `${this.currentUser.displayName} posted a file: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
+                    } else {
+                        activityMsg = `${this.currentUser.displayName} posted: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`;
+                    }
+
+                    // Add activity
+                    await db.collection('activity').add({
+                        uid: this.currentUser.uid,
+                        action: activityMsg,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    // Reset form and file inputs
+                    input.value = '';
+                    this.resetVideoUpload();
+                    this.resetImageUpload();
+                    this.resetFileUpload();
+                    this.showToast('✅ Posted live to all users!');
+                } catch (error) {
+                    console.error('Error creating post:', error);
+                    this.showToast('❌ Error posting. Please try again.');
+                } finally {
+                    // Re-enable button
+                    createBtn.disabled = false;
+                    createBtn.innerHTML = 'Post Live';
+                }
+            }
+
+            async toggleLike(postId) { // Removed postUid argument as friend feature is gone
+                try {
+                    const postRef = db.collection('posts').doc(postId);
+                    const post = await postRef.get();
+                    
+                    if (post.exists) {
+                        const postData = post.data();
+                        const likes = postData.likes || [];
+                        const userIndex = likes.indexOf(this.currentUser.uid);
+                        
+                        if (userIndex === -1) {
+                            // Add like
+                            await postRef.update({
+                                likes: firebase.firestore.FieldValue.arrayUnion(this.currentUser.uid),
+                                likeCount: firebase.firestore.FieldValue.increment(1)
+                            });
+                        } else {
+                            // Remove like
+                            await postRef.update({
+                                likes: firebase.firestore.FieldValue.arrayRemove(this.currentUser.uid),
+                                likeCount: firebase.firestore.FieldValue.increment(-1)
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error toggling like:', error);
+                }
+            }
+
+            renderPosts(postDocs) {
+                const container = document.getElementById('postsContainer');
+                
+                if (postDocs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-gray-500 py-12">
+                            <h3 class="text-xl font-semibold mb-2">No posts yet</h3>
+                            <p>Be the first to post something!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = postDocs.map(doc => {
+                    const post = doc.data();
+                    const postId = doc.id;
+                    const timestamp = post.timestamp?.toDate() || new Date();
+                    const timeAgo = this.getTimeAgo(timestamp);
+                    const isLiked = post.likes?.includes(this.currentUser.uid);
+                    const isMyPost = post.uid === this.currentUser.uid;
+                    const hasFile = post.hasFile && post.fileURL;
+                    const fileType = post.fileType; // 'image', 'video', or 'other_files'
+                    const commentsCount = post.comments?.length || 0;
+
+                    const hasVideo = post.videoURL; // Check for old video posts
+                    const hasImage = post.imageURL; // Check for old image posts
+
+                    let mediaHtml = '';
+
+                    if (hasVideo) {
+                        mediaHtml = `
+                            <div class="mb-4">
+                                <video class="w-full max-h-96 bg-black rounded-lg" controls>
+                                    <source src="${post.videoURL}" type="${this.getMimeType(post.videoURL)}">
+                                    <p class="text-gray-400 p-4">Your browser doesn't support video playback.</p>
+                                </video>
+                            </div>
+                        `;
+                    } else if (hasImage) {
+                        mediaHtml = `
+                            <div class="mb-4">
+                                <img class="w-full max-h-96 object-contain bg-black rounded-lg" src="${post.imageURL}" alt="Post Image">
+                            </div>
+                        `;
+                    } else if (hasFile) {
+                        // Handle the new generic file posts
+                        mediaHtml = `
+                            <div class="mb-4">
+                                ${fileType === 'image' ? `
+                                    <img class="w-full max-h-96 object-contain bg-black rounded-lg" src="${post.fileURL}" alt="Post Image">
+                                ` : fileType === 'video' ? `
+                                    <video class="w-full max-h-96 bg-black rounded-lg" controls>
+                                        <source src="${post.fileURL}" type="${this.getMimeType(post.fileURL)}">
+                                        <p class="text-gray-400 p-4">Your browser doesn't support video playback.</p>
+                                    </video>
+                                ` : `
+                                    <div class="p-4 bg-gray-800 rounded-lg text-gray-400 text-center">
+                                        <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <p class="font-medium">Attached File: ${this.getFileNameFromUrl(post.fileURL)}</p>
+                                        <a href="${post.fileURL}" target="_blank" class="text-indigo-400 hover:underline text-sm mt-2 block">Download File</a>
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="post-card rounded-xl">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <img src="${post.authorPhoto}" alt="${post.author}" class="w-10 h-10 rounded-full">
+                                        <div>
+                                            <h4 class="font-semibold text-white">${post.author} ${isMyPost ? '(You)' : ''}</h4>
+                                            <p class="text-gray-400 text-sm">${timeAgo}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        ${hasVideo ? '<span class="text-xs bg-purple-600 px-2 py-1 rounded-full">📹</span>' : ''}
+                                        ${hasImage ? '<span class="text-xs bg-blue-600 px-2 py-1 rounded-full">🖼️</span>' : ''}
+                                        ${hasFile ? `<span class="text-xs bg-${this.getFileTypeColor(fileType)}-600 px-2 py-1 rounded-full">${this.getFileTypeTag(fileType)}</span>` : ''}
+                                        <div class="text-xs text-green-400">🟢 LIVE</div>
+                                    </div>
+                                </div>
+                                
+                                ${post.content ? `<p class="text-gray-300 mb-4">${post.content}</p>` : ''}
+                                
+                                ${mediaHtml}
+                                
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="like-btn flex items-center space-x-2 ${isLiked ? 'text-red-400' : 'text-gray-400'} hover:text-red-300 transition-colors p-2 rounded-md" 
+                                                onclick="socialHub.toggleLike('${postId}')">
+                                            <svg class="w-5 h-5" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                            </svg>
+                                            <span>${post.likeCount || 0}</span>
+                                        </button>
+                                        
+                                        <button class="comment-btn flex items-center space-x-2 text-gray-400 hover:text-blue-300 transition-colors p-2 rounded-md" 
+                                                onclick="socialHub.toggleComments('${postId}')">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                            </svg>
+                                            <span>${commentsCount} replies</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="text-sm text-gray-500">
+                                        Posted to ${document.getElementById('userCount').textContent} online users
+                                    </div>
+                                </div>
+                                
+                                <!-- Comments Section -->
+                                <div id="comments-${postId}" class="comments-section" style="display: none;">
+                                    <div class="border-t border-gray-700 pt-4 mt-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-sm font-medium text-gray-300">Replies</h4>
+                                            <button onclick="socialHub.toggleComments('${postId}')" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide replies">
+                                                <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <!-- Comment Input -->
+                                        <div class="flex items-center space-x-3 mb-4">
+                                            <img src="${this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName)}" alt="You" class="w-8 h-8 rounded-full">
+                                            <input type="text" id="comment-input-${postId}" placeholder="Write a reply..." 
+                                                   class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                            <button onclick="socialHub.addComment('${postId}')" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors flex-shrink-0">
+                                                Reply
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Comments List -->
+                                        <div id="comments-list-${postId}" class="space-y-3">
+                                            ${post.comments?.map(comment => `
+                                                <div class="flex items-start space-x-3">
+                                                    <img src="${comment.authorPhoto}" alt="${comment.author}" class="w-7 h-7 rounded-full">
+                                                    <div class="flex-1">
+                                                        <div class="bg-gray-800 rounded-lg px-3 py-2">
+                                                            <p class="font-medium text-sm text-white">${comment.author}</p>
+                                                            <p class="text-gray-300 text-sm">${comment.content}</p>
+                                                        </div>
+                                                        <p class="text-xs text-gray-500 mt-1 ml-3">${this.getTimeAgo(comment.timestamp?.toDate() || new Date())}</p>
+                                                    </div>
+                                                </div>
+                                            `).join('') || '<p class="text-gray-500 text-sm text-center py-2">No replies yet. Be the first!</p>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderActivity(activityDocs) {
+                const container = document.getElementById('liveActivity');
+                
+                if (activityDocs.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-sm">No recent activity</div>';
+                    return;
+                }
+
+                container.innerHTML = activityDocs.map(doc => {
+                    const activity = doc.data();
+                    const timestamp = activity.timestamp?.toDate() || new Date();
+                    const timeAgo = this.getTimeAgo(timestamp);
+
+                    return `
+                        <div class="flex items-start space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full mt-2 animate-pulse"></div>
+                            <div class="flex-1">
+                                <p class="text-gray-300 text-sm">${activity.action}</p>
+                                <p class="text-xs text-gray-500">${timeAgo}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            async updateStats() {
+                try {
+                    // Count total posts
+                    const postsSnapshot = await db.collection('posts').get();
+                    document.getElementById('totalPostsCount').textContent = postsSnapshot.size;
+
+                    // Count user's posts
+                    const userPostsSnapshot = await db.collection('posts').where('uid', '==', this.currentUser.uid).get();
+                    document.getElementById('myPostsCount').textContent = userPostsSnapshot.size;
+
+                    // Count total likes received
+                    let totalLikes = 0;
+                    userPostsSnapshot.docs.forEach(doc => {
+                        totalLikes += doc.data().likeCount || 0;
+                    });
+                    document.getElementById('totalLikesCount').textContent = totalLikes;
+
+                    // Count today's posts
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const todayPostsSnapshot = await db.collection('posts')
+                        .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(today))
+                        .get();
+                    document.getElementById('todayPostsCount').textContent = todayPostsSnapshot.size;
+                } catch (error) {
+                    console.error('Error updating stats:', error);
+                }
+            }
+
+            // Authentication methods
+            async signUp() {
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
+                const displayName = document.getElementById('displayNameInput').value.trim();
+
+                if (!email || !password || !displayName) {
+                    this.showToast('⚠️ Please fill all fields');
+                    return;
+                }
+
+                // Check if display name already exists
+                const usersRef = db.collection('users');
+                const existingUserSnapshot = await usersRef.where('displayName', '==', displayName).get();
+                
+                if (!existingUserSnapshot.empty) {
+                    this.showToast('❌ This username is already taken. Please choose another.');
+                    return;
+                }
+
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({
+                        displayName: displayName,
+                        photoURL: this.generateAvatar(displayName)
+                    });
+                    // Also store display name in Firestore user document
+                    await db.collection('users').doc(userCredential.user.uid).set({
+                        displayName: displayName
+                    }, { merge: true });
+
+                    this.showToast('✅ Account created successfully!');
+                } catch (error) {
+                    this.showToast(`❌ ${error.message}`);
+                }
+            }
+
+            async signIn() {
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
+
+                if (!email || !password) {
+                    this.showToast('⚠️ Please enter email and password');
+                    return;
+                }
+
+                try {
+                    await auth.signInWithEmailAndPassword(email, password);
+                    this.showToast('✅ Signed in successfully!');
+                } catch (error) {
+                    this.showToast(`❌ ${error.message}`);
+                }
+            }
+
+            async signOut() {
+                try {
+                    await auth.signOut();
+                    this.showToast('👋 Signed out');
+                } catch (error) {
+                    console.error('Error signing out:', error);
+                }
+            }
+
+            // UI Helper methods
+            showMainApp() {
+                document.getElementById('authModal').classList.remove('active');
+                document.getElementById('mainApp').style.display = 'block';
+            }
+
+            showAuthModal() {
+                document.getElementById('authModal').classList.add('active');
+                document.getElementById('mainApp').style.display = 'none';
+            }
+
+            generateAvatar(name) {
+                const firstLetter = (name || 'A').charAt(0).toUpperCase();
+                const colors = ['6366f1', 'ef4444', '10b981', 'f59e0b', '8b5cf6', 'ec4899'];
+                const color = colors[name.length % colors.length];
+                return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%23${color}'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-family='Arial' font-size='16' font-weight='bold'%3E${firstLetter}%3C/text%3E%3C/svg%3E`;
+            }
+
+            getTimeAgo(date) {
+                const now = new Date();
+                const diff = now - date;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+
+                if (minutes < 1) return 'Just now';
+                if (minutes < 60) return `${minutes}m ago`;
+                if (hours < 24) return `${hours}h ago`;
+                if (days < 7) return `${days}d ago`;
+                return date.toLocaleDateString();
+            }
+
+            // Generic Toast Notification System
+            showToast(message, type = 'info', duration = 5000) {
+                const toastContainer = document.getElementById('toastContainer');
+                if (!toastContainer) {
+                    const body = document.querySelector('body');
+                    const div = document.createElement('div');
+                    div.id = 'toastContainer';
+                    div.className = 'fixed top-4 right-4 z-[1001] space-y-3'; // Tailwind classes for positioning
+                    body.appendChild(div);
+                    toastContainer = div;
+                }
+
+                let bgColorClass = 'bg-gray-800';
+                let iconHtml = '';
+
+                if (type === 'error') {
+                    bgColorClass = 'bg-red-600';
+                    iconHtml = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>';
+                } else if (type === 'success') {
+                    bgColorClass = 'bg-green-600';
+                    iconHtml = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"></path></svg>';
+                } else if (type === 'private_message') {
+                    bgColorClass = 'bg-fuchsia-600'; // Distinct color for private messages
+                    iconHtml = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"></path></svg>'; // Chat bubble icon
+                }
+
+                const toast = document.createElement('div');
+                toast.className = `toast ${bgColorClass} text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 transform translate-x-full transition-transform duration-300`;
+                toast.innerHTML = `
+                    ${iconHtml}
+                    <span>${message}</span>
+                `;
+
+                toastContainer.appendChild(toast);
+
+                // Animate in
+                setTimeout(() => {
+                    toast.classList.add('translate-x-0');
+                }, 100);
+
+                // Animate out and remove
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-0');
+                    toast.classList.add('translate-x-full');
+                    toast.addEventListener('transitionend', () => toast.remove());
+                }, duration); // Use the provided duration or default
+            }
+
+            // Video Upload Methods
+            showVideoUpload() {
+                document.getElementById('videoUploadSection').style.display = 'block';
+                document.getElementById('addVideoBtn').style.display = 'none';
+            }
+            
+            hideVideoUpload() {
+                document.getElementById('videoUploadSection').style.display = 'none';
+                document.getElementById('addVideoBtn').style.display = 'block';
+                this.resetVideoUpload();
+            }
+            
+            resetVideoUpload() {
+                document.getElementById('videoUploadArea').style.display = 'block';
+                document.getElementById('videoPreview').style.display = 'none';
+                document.getElementById('videoUploadProgress').style.display = 'none';
+                document.getElementById('videoInput').value = '';
+                this.currentVideo = null;
+                if (this.uploadTask) {
+                    this.uploadTask.cancel();
+                    this.uploadTask = null;
+                }
+            }
+            
+            validateVideoFile(file) {
+                const maxSize = 50 * 1024 * 1024; // 50MB
+                const allowedTypes = ['video/mp4', 'video/mov', 'video/avi', 'video/webm'];
+                
+                if (!allowedTypes.includes(file.type)) {
+                    this.showToast('❌ Please select a valid video file (MP4, MOV, AVI, WEBM)');
+                    return false;
+                }
+                
+                if (file.size > maxSize) {
+                    this.showToast('❌ Video file too large. Please select a file under 50MB');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            handleVideoSelection(file) {
+                if (!this.validateVideoFile(file)) return;
+                
+                this.currentVideo = file;
+                
+                // Create preview URL
+                const videoUrl = URL.createObjectURL(file);
+                const previewVideo = document.getElementById('previewVideo');
+                previewVideo.src = videoUrl;
+                
+                // Update UI
+                document.getElementById('videoFileName').textContent = file.name;
+                document.getElementById('videoUploadArea').style.display = 'none';
+                document.getElementById('videoPreview').style.display = 'block';
+                
+                this.showToast('📹 Video selected! Ready to post.');
+            }
+            
+            async uploadVideo() {
+                if (!this.currentVideo) return null;
+                
+                try {
+                    // Show upload progress
+                    document.getElementById('videoUploadProgress').style.display = 'block';
+                    
+                    // Create unique filename
+                    const timestamp = Date.now();
+                    const fileName = `videos/${this.currentUser.uid}/${timestamp}_${this.currentVideo.name}`;
+                    
+                    // Upload to Firebase Storage
+                    const storageRef = storage.ref(fileName);
+                    this.uploadTask = storageRef.put(this.currentVideo);
+                    
+                    // Track upload progress
+                    this.uploadTask.on('state_changed', (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        document.getElementById('videoProgressBar').style.width = progress + '%';
+                        document.getElementById('videoProgressPercent').textContent = Math.round(progress) + '%';
+                    });
+                    
+                    // Wait for upload completion
+                    await this.uploadTask;
+                    
+                    // Get download URL
+                    const downloadURL = await storageRef.getDownloadURL();
+                    
+                    console.log('📹 Video uploaded successfully:', downloadURL);
+                    return downloadURL;
+                    
+                } catch (error) {
+                    console.error('Error uploading video:', error);
+                    this.showToast('❌ Failed to upload video. Please try again.');
+                    return null;
+                }
+            }
+            
+            removeVideo() {
+                if (this.currentVideo) {
+                    URL.revokeObjectURL(document.getElementById('previewVideo').src);
+                }
+                this.resetVideoUpload();
+                this.showToast('🗑️ Video removed');
+            }
+            
+            // Image Upload Methods
+            showImageUpload() {
+                document.getElementById('imageUploadSection').style.display = 'block';
+                document.getElementById('addImageBtn').style.display = 'none';
+            }
+
+            hideImageUpload() {
+                document.getElementById('imageUploadSection').style.display = 'none';
+                document.getElementById('addImageBtn').style.display = 'block';
+                this.resetImageUpload();
+            }
+
+            resetImageUpload() {
+                document.getElementById('imageUploadArea').style.display = 'block';
+                document.getElementById('imagePreview').style.display = 'none';
+                document.getElementById('imageUploadProgress').style.display = 'none';
+                document.getElementById('imageInput').value = '';
+                this.currentImage = null;
+                if (this.imageUploadTask) {
+                    this.imageUploadTask.cancel();
+                    this.imageUploadTask = null;
+                }
+            }
+            
+            validateImageFile(file) {
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                
+                if (!allowedTypes.includes(file.type)) {
+                    this.showToast('❌ Please select a valid image file (JPG, PNG, GIF, WEBP)');
+                    return false;
+                }
+                
+                if (file.size > maxSize) {
+                    this.showToast('❌ Image file too large. Please select a file under 10MB');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            handleImageSelection(file) {
+                if (!this.validateImageFile(file)) return;
+                
+                this.currentImage = file;
+                
+                // Create preview URL
+                const imageUrl = URL.createObjectURL(file);
+                const previewImage = document.getElementById('previewImage');
+                previewImage.src = imageUrl;
+                
+                // Update UI
+                document.getElementById('imageFileName').textContent = file.name;
+                document.getElementById('imageUploadArea').style.display = 'none';
+                document.getElementById('imagePreview').style.display = 'block';
+                
+                this.showToast('🖼️ Image selected! Ready to post.');
+            }
+
+            async uploadImage() {
+                if (!this.currentImage) return null;
+
+                try {
+                    // Show upload progress
+                    document.getElementById('imageUploadProgress').style.display = 'block';
+
+                    // Create unique filename
+                    const timestamp = Date.now();
+                    const fileName = `images/${this.currentUser.uid}/${timestamp}_${this.currentImage.name}`;
+                    
+                    // Upload to Firebase Storage
+                    const storageRef = storage.ref(fileName);
+                    this.imageUploadTask = storageRef.put(this.currentImage);
+                    
+                    // Track upload progress
+                    this.imageUploadTask.on('state_changed', (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        document.getElementById('imageProgressBar').style.width = progress + '%';
+                        document.getElementById('imageProgressPercent').textContent = Math.round(progress) + '%';
+                    });
+                    
+                    // Wait for upload completion
+                    await this.imageUploadTask;
+                    
+                    // Get download URL
+                    const downloadURL = await storageRef.getDownloadURL();
+                    
+                    console.log('🖼️ Image uploaded successfully:', downloadURL);
+                    return downloadURL;
+                    
+                } catch (error) {
+                    console.error('Error uploading image:', error);
+                    this.showToast('❌ Failed to upload image. Please try again.');
+                    return null;
+                }
+            }
+
+            removeImage() {
+                if (this.currentImage) {
+                    URL.revokeObjectURL(document.getElementById('previewImage').src);
+                }
+                this.resetImageUpload();
+                this.showToast('🗑️ Image removed');
+            }
+
+            // Generic File Upload Methods
+            showFileUpload() {
+                document.getElementById('fileUploadSection').style.display = 'block';
+                document.getElementById('addFileBtn').style.display = 'none';
+            }
+            
+            hideFileUpload() {
+                document.getElementById('fileUploadSection').style.display = 'none';
+                document.getElementById('addFileBtn').style.display = 'block';
+                this.resetFileUpload();
+            }
+            
+            resetFileUpload() {
+                document.getElementById('fileUploadArea').style.display = 'block';
+                document.getElementById('genericFilePreview').style.display = 'none';
+                document.getElementById('previewGenericImage').style.display = 'none';
+                document.getElementById('previewGenericVideo').style.display = 'none';
+                document.getElementById('genericFileDisplay').style.display = 'none';
+                document.getElementById('fileUploadProgress').style.display = 'none';
+                document.getElementById('fileInput').value = '';
+                this.currentFile = null;
+                if (this.fileUploadTask) {
+                    this.fileUploadTask.cancel();
+                    this.fileUploadTask = null;
+                }
+            }
+            
+            validateFile(file) {
+                const maxSize = 50 * 1024 * 1024; // 50MB for any file
+                
+                if (file.size > maxSize) {
+                    this.showToast('❌ File too large. Please select a file under 50MB');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            handleFileSelection(file) {
+                if (!this.validateFile(file)) return;
+                
+                this.currentFile = file;
+                
+                const fileType = file.type.split('/')[0];
+                const previewImage = document.getElementById('previewGenericImage');
+                const previewVideo = document.getElementById('previewGenericVideo');
+                const genericFileDisplay = document.getElementById('genericFileDisplay');
+
+                document.getElementById('fileUploadArea').style.display = 'none';
+                document.getElementById('genericFilePreview').style.display = 'block';
+                document.getElementById('displayGenericFileName').textContent = file.name;
+
+                if (fileType === 'image') {
+                    previewImage.src = URL.createObjectURL(file);
+                    previewImage.style.display = 'block';
+                    previewVideo.style.display = 'none';
+                    genericFileDisplay.style.display = 'none';
+                    this.showToast('🖼️ Image selected! Ready to post.');
+                } else if (fileType === 'video') {
+                    previewVideo.src = URL.createObjectURL(file);
+                    previewVideo.style.display = 'block';
+                    previewImage.style.display = 'none';
+                    genericFileDisplay.style.display = 'none';
+                    this.showToast('📹 Video selected! Ready to post.');
+                } else {
+                    previewImage.style.display = 'none';
+                    previewVideo.style.display = 'none';
+                    genericFileDisplay.style.display = 'block';
+                    document.getElementById('genericFileName').textContent = file.name;
+                    this.showToast('📄 File selected! Ready to post.');
+                }
+            }
+            
+            async uploadFile() {
+                if (!this.currentFile) return null;
+                
+                try {
+                    // Show upload progress
+                    document.getElementById('fileUploadProgress').style.display = 'block';
+                    
+                    // Determine storage path based on file type
+                    const fileType = this.currentFile.type.split('/')[0];
+                    let folder = 'other_files';
+                    if (fileType === 'image') {
+                        folder = 'images';
+                    } else if (fileType === 'video') {
+                        folder = 'videos';
+                    }
+                    
+                    // Create unique filename
+                    const timestamp = Date.now();
+                    const fileName = `${folder}/${this.currentUser.uid}/${timestamp}_${this.currentFile.name}`;
+                    
+                    // Upload to Firebase Storage
+                    const storageRef = storage.ref(fileName);
+                    this.fileUploadTask = storageRef.put(this.currentFile);
+                    
+                    // Track upload progress
+                    this.fileUploadTask.on('state_changed', (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        document.getElementById('fileProgressBar').style.width = progress + '%';
+                        document.getElementById('fileProgressPercent').textContent = Math.round(progress) + '%';
+                    });
+                    
+                    // Wait for upload completion
+                    await this.fileUploadTask;
+                    
+                    // Get download URL
+                    const downloadURL = await storageRef.getDownloadURL();
+                    
+                    console.log('✅ File uploaded successfully:', downloadURL);
+                    return downloadURL;
+                    
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    this.showToast('❌ Failed to upload file. Please try again.');
+                    return null;
+                }
+            }
+            
+            removeFile() {
+                if (this.currentFile) {
+                    const fileType = this.currentFile.type.split('/')[0];
+                    if (fileType === 'image') {
+                        URL.revokeObjectURL(document.getElementById('previewGenericImage').src);
+                    } else if (fileType === 'video') {
+                        URL.revokeObjectURL(document.getElementById('previewGenericVideo').src);
+                    }
+                }
+                this.resetFileUpload();
+                this.showToast('🗑️ File removed');
+            }
+
+            getFileTypeColor(fileType) {
+                switch (fileType) {
+                    case 'image':
+                        return 'blue';
+                    case 'video':
+                        return 'purple';
+                    default:
+                        return 'gray';
+                }
+            }
+
+            getFileTypeTag(fileType) {
+                switch (fileType) {
+                    case 'image':
+                        return '🖼️';
+                    case 'video':
+                        return '📹';
+                    default:
+                        return '📄';
+                }
+            }
+
+            getMimeType(url) {
+                const extension = url.split('.').pop().toLowerCase();
+                switch (extension) {
+                    case 'mp4':
+                    case 'mov':
+                    case 'avi':
+                    case 'webm':
+                        return `video/${extension}`;
+                    case 'jpg':
+                    case 'jpeg':
+                    case 'png':
+                    case 'gif':
+                    case 'webp':
+                        return `image/${extension}`;
+                    default:
+                        return 'application/octet-stream';
+                }
+            }
+
+            getFileNameFromUrl(url) {
+                return url.split('/').pop();
+            }
+
+            // Private Messaging Methods
+            async startPrivateChat(recipientUid, recipientDisplayName, recipientPhotoURL) {
+                if (!this.currentUser) {
+                    this.showToast('Please sign in to start a private chat.');
+                    return;
+                }
+
+                this.currentChatRecipient = { uid: recipientUid, displayName: recipientDisplayName, photoURL: recipientPhotoURL };
+                this.currentChatRecipientId = recipientUid; // Set the current chat recipient ID
+                
+                // Remove this sender from the new private messages list when their chat is opened
+                this.newPrivateMessageSenders.delete(recipientUid);
+                this.renderNewPrivateMessagesList(); // Re-render the list
+
+                // Set recipient info in modal
+                document.getElementById('chatRecipientName').textContent = recipientDisplayName;
+                document.getElementById('chatRecipientAvatar').src = recipientPhotoURL || this.generateAvatar(recipientDisplayName);
+                document.getElementById('privateMessageModal').classList.add('active');
+                document.getElementById('chatMessages').innerHTML = '<div class="text-center text-gray-500 py-12"><div class="loading mx-auto mb-4"></div><p>Loading messages...</p></div>';
+                
+                // Construct conversation ID (lexicographically ordered for consistency)
+                const conversationId = [this.currentUser.uid, recipientUid].sort().join('_');
+
+                // Clean up previous listener if any
+                if (this.privateChatUnsubscribe) {
+                    this.privateChatUnsubscribe();
+                }
+
+                // Listen for new messages in real-time
+                const messagesRef = db.collection('private_chats').doc(conversationId).collection('messages').orderBy('timestamp', 'asc');
+                this.privateChatUnsubscribe = messagesRef.onSnapshot((snapshot) => {
+                    this.renderPrivateMessages(snapshot.docs);
+                    // Scroll to bottom of chat after new messages
+                    const chatMessagesDiv = document.getElementById('chatMessages');
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                }, (error) => {
+                    console.error("Error fetching private messages:", error);
+                    this.showToast("❌ Error loading private messages.");
+                });
+
+                // Clear input
+                document.getElementById('privateMessageInput').value = '';
+            }
+
+            async sendPrivateMessage() {
+                if (!this.currentUser || !this.currentChatRecipient) {
+                    this.showToast('Cannot send message without a recipient.');
+                    return;
+                }
+
+                const messageInput = document.getElementById('privateMessageInput');
+                const content = messageInput.value.trim();
+
+                if (!content) {
+                    this.showToast('Please type a message.');
+                    return;
+                }
+
+                try {
+                    const conversationId = [this.currentUser.uid, this.currentChatRecipient.uid].sort().join('_');
+                    const messagesCollectionRef = db.collection('private_chats').doc(conversationId).collection('messages');
+
+                    await messagesCollectionRef.add({
+                    senderId: this.currentUser.uid,
+                    senderName: this.currentUser.displayName,
+                    senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                    recipientId: this.currentChatRecipient.uid,
+                    content: content,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    messageInput.value = '';
+                    // If the sender replies, clear the recipient from their new messages list (if they were there)
+                    this.newPrivateMessageSenders.delete(this.currentChatRecipient.uid);
+                    this.renderNewPrivateMessagesList(); // Re-render the list
+
+                    // No toast needed, messages will appear via real-time listener
+                    
+                } catch (error) {
+                    console.error('Error sending private message:', error);
+                    this.showToast('❌ Failed to send message. Please try again.');
+                }
+            }
+
+            renderPrivateMessages(messageDocs) {
+                const chatMessagesDiv = document.getElementById('chatMessages');
+                if (messageDocs.length === 0) {
+                    chatMessagesDiv.innerHTML = '<div class="text-center text-gray-500 py-12"><p class="text-sm">No messages yet. Start the conversation!</p></div>';
+                    return;
+                }
+
+                chatMessagesDiv.innerHTML = messageDocs.map(doc => {
+                    const message = doc.data();
+                    const isMyMessage = message.senderId === this.currentUser.uid;
+                    const timeAgo = this.getTimeAgo(message.timestamp?.toDate() || new Date());
+
+                    return `
+                        <div class="flex ${isMyMessage ? 'justify-end' : 'justify-start'}">
+                            <div class="flex items-end ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} space-x-2 ${isMyMessage ? 'space-x-reverse' : ''}">
+                                <img src="${message.senderPhoto}" alt="${message.senderName}" class="w-8 h-8 rounded-full flex-shrink-0">
+                                <div class="${isMyMessage ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} p-3 rounded-lg max-w-[75%]">
+                                    <p class="font-medium text-sm mb-1">${isMyMessage ? 'You' : message.senderName}</p>
+                                    <p class="text-sm break-words">${message.content}</p>
+                                    <p class="text-xs text-right mt-1 ${isMyMessage ? 'text-indigo-200' : 'text-gray-400'}">${timeAgo}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            hidePrivateChatModal() {
+                document.getElementById('privateMessageModal').classList.remove('active');
+                this.currentChatRecipient = null;
+                this.currentChatRecipientId = null; // Clear the current chat recipient ID
+                if (this.privateChatUnsubscribe) {
+                    this.privateChatUnsubscribe();
+                    this.privateChatUnsubscribe = null;
+                }
+                document.getElementById('chatMessages').innerHTML = ''; // Clear messages on close
+            }
+
+            setupEventListeners() {
+                // Auth buttons
+                document.getElementById('signUpBtn').addEventListener('click', () => this.signUp());
+                document.getElementById('signInBtn').addEventListener('click', () => this.signIn());
+                document.getElementById('signOutBtn').addEventListener('click', () => this.signOut());
+
+                // Post creation
+                document.getElementById('createPostBtn').addEventListener('click', () => this.createPost());
+                document.getElementById('postInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                        this.createPost();
+                    }
+                });
+                
+                // Video upload
+                document.getElementById('addVideoBtn').addEventListener('click', () => this.showVideoUpload());
+                document.getElementById('removeVideoBtn').addEventListener('click', () => this.removeVideo());
+                document.getElementById('hideVideoBtn').addEventListener('click', () => this.hideVideoUpload());
+                
+                const videoInput = document.getElementById('videoInput');
+                videoInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleVideoSelection(e.target.files[0]);
+                    }
+                });
+                
+                const videoDropArea = document.getElementById('videoUploadArea');
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    videoDropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+                
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    videoDropArea.addEventListener(eventName, () => {
+                        videoDropArea.classList.add('drag-over');
+                    }, false);
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    videoDropArea.addEventListener(eventName, () => {
+                        videoDropArea.classList.remove('drag-over');
+                    }, false);
+                });
+                
+                videoDropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleVideoSelection(file);
+                    }
+                }, false);
+                
+                videoDropArea.addEventListener('click', () => {
+                    videoInput.click();
+                });
+
+                // Image upload
+                document.getElementById('addImageBtn').addEventListener('click', () => this.showImageUpload());
+                document.getElementById('removeImageBtn').addEventListener('click', () => this.removeImage());
+                document.getElementById('hideImageBtn').addEventListener('click', () => this.hideImageUpload());
+
+                const imageInput = document.getElementById('imageInput');
+                imageInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleImageSelection(e.target.files[0]);
+                    }
+                });
+
+                const imageDropArea = document.getElementById('imageUploadArea');
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    imageDropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    imageDropArea.addEventListener(eventName, () => {
+                        imageDropArea.classList.add('drag-over');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    imageDropArea.addEventListener(eventName, () => {
+                        imageDropArea.classList.remove('drag-over');
+                    }, false);
+                });
+
+                imageDropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleImageSelection(file);
+                    }
+                }, false);
+
+                imageDropArea.addEventListener('click', () => {
+                    imageInput.click();
+                });
+
+                // Generic file upload
+                document.getElementById('addFileBtn').addEventListener('click', () => this.showFileUpload());
+                document.getElementById('removeGenericFileBtn').addEventListener('click', () => this.removeFile());
+                document.getElementById('hideFileBtn').addEventListener('click', () => this.hideFileUpload());
+
+                const fileInput = document.getElementById('fileInput');
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFileSelection(e.target.files[0]);
+                    }
+                });
+
+                const genericFileDropArea = document.getElementById('fileUploadArea');
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    genericFileDropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    genericFileDropArea.addEventListener(eventName, () => {
+                        genericFileDropArea.classList.add('drag-over');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    genericFileDropArea.addEventListener(eventName, () => {
+                        genericFileDropArea.classList.remove('drag-over');
+                    }, false);
+                });
+
+                genericFileDropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleFileSelection(file);
+                    }
+                }, false);
+
+                genericFileDropArea.addEventListener('click', () => {
+                    fileInput.click();
+                });
+
+                // Profile picture upload
+                document.getElementById('profileImageInput').addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleProfileImageSelection(e.target.files[0]);
+                    }
+                });
+
+                // Search input event listener
+                document.getElementById('searchInput').addEventListener('input', () => {
+                    clearTimeout(this.searchTimeout);
+                    this.searchTimeout = setTimeout(() => {
+                        this.handleSearch();
+                    }, 300); // 300ms debounce time
+                });
+
+                // Private messaging event listeners
+                document.getElementById('sendPrivateMessageBtn').addEventListener('click', () => this.sendPrivateMessage());
+                document.getElementById('privateMessageInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent new line in input
+                        this.sendPrivateMessage();
+                    }
+                });
+
+                // New: Find User for Private Chat
+                document.getElementById('findUserBtn').addEventListener('click', () => this.findUserForPrivateChat());
+                document.getElementById('privateChatNameInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.findUserForPrivateChat();
+                    }
+                });
+            }
+
+            // New: Find User for Private Chat
+            async findUserForPrivateChat() {
+                const input = document.getElementById('privateChatNameInput');
+                const statusDiv = document.getElementById('privateChatStatus');
+                const userName = input.value.trim();
+
+                if (!userName) {
+                    statusDiv.textContent = 'Please enter a name.';
+                    statusDiv.className = 'text-sm mt-2 text-red-400';
+                    return;
+                }
+
+                statusDiv.textContent = 'Searching...';
+                statusDiv.className = 'text-sm mt-2 text-gray-400';
+
+                try {
+                    // Search Firestore for user by displayName (case-insensitive for better UX)
+                    const usersRef = db.collection('users');
+                    const querySnapshot = await usersRef
+                        .where('displayName', '>=', userName)
+                        .where('displayName', '<=', userName + '\uf8ff')
+                        .limit(1)
+                        .get();
+
+                    if (!querySnapshot.empty) {
+                        const userDoc = querySnapshot.docs[0];
+                        const user = userDoc.data();
+
+                        if (user.uid === this.currentUser.uid) {
+                            statusDiv.textContent = 'You cannot chat with yourself.';
+                            statusDiv.className = 'text-sm mt-2 text-yellow-400';
+                            return;
+                        }
+
+                        statusDiv.textContent = `Found ${user.displayName}. Starting chat...`;
+                        statusDiv.className = 'text-sm mt-2 text-green-400';
+                        this.startPrivateChat(user.uid, user.displayName, user.photoURL);
+                        input.value = ''; // Clear input after finding user
+                    } else {
+                        statusDiv.textContent = `User "${userName}" not found.`;
+                        statusDiv.className = 'text-sm mt-2 text-red-400';
+                    }
+                } catch (error) {
+                    console.error('Error searching for user:', error);
+                    statusDiv.textContent = 'Error searching for user.';
+                    statusDiv.className = 'text-sm mt-2 text-red-400';
+                }
+            }
+
+            // New: Private Message Notifications
+            setupPrivateMessageNotifications() {
+                if (!this.currentUser) {
+                    console.warn("setupPrivateMessageNotifications: currentUser is null. Skipping setup.");
+                    return;
+                }
+
+                const myUid = this.currentUser.uid;
+                console.log("setupPrivateMessageNotifications: Setting up listener for user UID:", myUid);
+
+                // Listen for new messages where the current user is the recipient
+                const messagesRef = db.collectionGroup('messages')
+                    .where('recipientId', '==', myUid)
+                    .orderBy('timestamp', 'desc') // Order by timestamp to get the latest
+                    .limit(1); // Only need the latest message for notification
+
+                this.unsubscribes.push(messagesRef.onSnapshot((snapshot) => {
+                    console.log("setupPrivateMessageNotifications: New snapshot received.", snapshot.docChanges().length, "changes.");
+                    snapshot.docChanges().forEach(change => {
+                        if (change.type === 'added') {
+                            const message = change.doc.data();
+                            
+                            // Do not show notification for messages sent by the current user
+                            if (message.senderId === myUid) {
+                                console.log("setupPrivateMessageNotifications: Message sent by current user. Not showing toast.");
+                                return;
+                            }
+
+                            console.log("setupPrivateMessageNotifications: New message detected.", message.senderName, "content:", message.content, "Timestamp:", message.timestamp?.toDate());
+                            console.log("setupPrivateMessageNotifications: Sender ID:", message.senderId, "Current Chat Recipient ID:", this.currentChatRecipientId);
+                            
+                            // Only show notification if the message is not from the currently open chat
+                            if (message.senderId !== this.currentChatRecipientId) {
+                                this.showToast(`💬 New message from ${message.senderName}`, 'private_message', 10000);
+                                console.log("setupPrivateMessageNotifications: Toast notification triggered for message from:", message.senderName);
+                                // Add sender to new private messages list
+                                this.newPrivateMessageSenders.add(message.senderId);
+                                this.renderNewPrivateMessagesList(); // Re-render the list
+                            } else {
+                                console.log("setupPrivateMessageNotifications: Message from current chat recipient. Not showing toast.");
+                            }
+                        }
+                    });
+                }, (error) => {
+                    console.error("Error setting up private message notifications:", error);
+                }));
+            }
+
+            // New: Toggle Comments Section
+            toggleComments(postId) {
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                if (commentsSection) {
+                    commentsSection.style.display = commentsSection.style.display === 'none' || commentsSection.style.display === '' ? 'block' : 'none';
+                }
+            }
+
+            // New: Add Comment
+            async addComment(postId) {
+                const commentInput = document.getElementById(`comment-input-${postId}`);
+                const content = commentInput.value.trim();
+
+                if (!content) {
+                    this.showToast('Please write a comment.');
+                    return;
+                }
+
+                try {
+                    const postRef = db.collection('posts').doc(postId);
+                    await postRef.update({
+                        comments: firebase.firestore.FieldValue.arrayUnion({
+                            author: this.currentUser.displayName,
+                            authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                            content: content,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        })
+                    });
+                    commentInput.value = '';
+                    this.showToast('✅ Comment added!');
+                } catch (error) {
+                    console.error('Error adding comment:', error);
+                    this.showToast('❌ Failed to add comment.');
+                }
+            }
+
+            // New: Render New Private Messages List
+            async renderNewPrivateMessagesList() {
+                const container = document.getElementById('newPrivateMessagesList');
+                const parentContainer = document.getElementById('newPrivateMessagesContainer');
+                
+                if (this.newPrivateMessageSenders.size === 0) {
+                    parentContainer.style.display = 'none';
+                    container.innerHTML = '';
+                    return;
+                }
+
+                parentContainer.style.display = 'block';
+                
+                let userHtml = '';
+                for (const senderId of this.newPrivateMessageSenders) {
+                    // Fetch user details for each sender
+                    const userDoc = await db.collection('users').doc(senderId).get();
+                    if (userDoc.exists) {
+                        const user = userDoc.data();
+                        userHtml += `
+                            <div class="flex items-center space-x-3 p-2 rounded-lg bg-fuchsia-800/50 hover:bg-fuchsia-700/50 cursor-pointer" 
+                                 onclick="socialHub.startPrivateChat('${user.uid}', '${user.displayName}', '${user.photoURL}')">
+                                <div class="relative">
+                                    <img src="${user.photoURL}" alt="${user.displayName}" class="w-8 h-8 rounded-full">
+                                    <div class="online-indicator absolute -bottom-1 -right-1 w-3 h-3 rounded-full"></div>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-white">${user.displayName}</p>
+                                    <p class="text-xs text-fuchsia-300">New Message</p>
+                                </div>
+                                <svg class="w-5 h-5 text-fuchsia-300" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"></path></svg>
+                            </div>
+                        `;
+                    } else {
+                        // If user document doesn't exist, remove from set
+                        this.newPrivateMessageSenders.delete(senderId);
+                    }
+                }
+                container.innerHTML = userHtml;
+            }
+
+            generateKeywords(text) {
+                const words = text.toLowerCase().match(/\b\w+\b/g);
+                return Array.from(new Set(words || []));
+            }
+        }
+
+        // Initialize the app
+        const socialHub = new RealSocialHub();
+        window.socialHub = socialHub;
+    </script>
+</body>
+</html>
