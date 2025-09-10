@@ -581,6 +581,8 @@
             <input type="file" id="privateChatImageInput" accept="image/*" class="hidden">
             <input type="file" id="privateChatFileInput" class="hidden">
 
+            <div id="privateChatUploadPreview" class="mb-2" style="display:none;"></div>
+
             <div class="mt-4 pt-4 border-t border-gray-700 flex items-center space-x-3">
                 <input type="text" id="privateMessageInput" placeholder="Type your message..." 
                        class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -648,6 +650,7 @@ const firebaseConfig = {
 
                 this.setupAuthListeners();
                 this.setupEventListeners();
+                this.setupPrivateChatUploadListeners();
             }
 
             setupAuthListeners() {
@@ -667,6 +670,58 @@ const firebaseConfig = {
                     }
                 });
             }
+
+            setupPrivateChatUploadListeners() {
+    // Video
+    document.getElementById('privateChatVideoBtn').addEventListener('click', () => {
+        document.getElementById('privateChatVideoInput').click();
+    });
+    document.getElementById('privateChatVideoInput').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) this.handlePrivateChatFileSelection(e.target.files[0], 'video');
+    });
+
+    // Image
+    document.getElementById('privateChatImageBtn').addEventListener('click', () => {
+        document.getElementById('privateChatImageInput').click();
+    });
+    document.getElementById('privateChatImageInput').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) this.handlePrivateChatFileSelection(e.target.files[0], 'image');
+    });
+
+    // File
+    document.getElementById('privateChatFileBtn').addEventListener('click', () => {
+        document.getElementById('privateChatFileInput').click();
+    });
+    document.getElementById('privateChatFileInput').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) this.handlePrivateChatFileSelection(e.target.files[0], 'file');
+    });
+}
+
+handlePrivateChatFileSelection(file, type) {
+    // Validate file size/type
+    let maxSize = type === 'image' ? 10*1024*1024 : 50*1024*1024;
+    if (file.size > maxSize) {
+        this.showToast(`❌ File too large. Max size: ${type==='image'?'10MB':'50MB'}.`);
+        return;
+    }
+    this.currentPrivateChatFile = { file, type };
+    this.renderPrivateChatUploadPreview();
+}
+
+renderPrivateChatUploadPreview() {
+    const previewDiv = document.getElementById('privateChatUploadPreview');
+    previewDiv.innerHTML = '';
+    if (!this.currentPrivateChatFile) { previewDiv.style.display = 'none'; return; }
+    const { file, type } = this.currentPrivateChatFile;
+    previewDiv.style.display = 'block';
+    if (type === 'image') {
+        previewDiv.innerHTML = `<img src="${URL.createObjectURL(file)}" class="video-preview w-32 h-32 object-contain rounded-lg mx-auto mb-2" alt="Image Preview"><div class="text-center text-gray-300 text-sm">${file.name}</div>`;
+    } else if (type === 'video') {
+        previewDiv.innerHTML = `<video src="${URL.createObjectURL(file)}" class="video-preview w-48 h-32 rounded-lg mx-auto mb-2" controls></video><div class="text-center text-gray-300 text-sm">${file.name}</div>`;
+    } else {
+        previewDiv.innerHTML = `<div class="p-2 bg-gray-800 rounded text-gray-300 text-center"><svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><p>${file.name}</p></div>`;
+    }
+}
 
             async initializeUser() {
                 const userRef = db.collection('users').doc(this.currentUser.uid);
@@ -1553,7 +1608,7 @@ const firebaseConfig = {
                 document.getElementById('genericFilePreview').style.display = 'block';
                 document.getElementById('displayGenericFileName').textContent = file.name;
 
-                if (fileType === 'image') {
+                if (fileType === 'image') {p
                     previewImage.src = URL.createObjectURL(file);
                     previewImage.style.display = 'block';
                     previewVideo.style.display = 'none';
@@ -1722,46 +1777,84 @@ const firebaseConfig = {
                 // Clear input
                 document.getElementById('privateMessageInput').value = '';
             }
+async sendPrivateMessage() {
+    if (!this.currentUser || !this.currentChatRecipient) {
+        this.showToast('Cannot send message without a recipient.');
+        return;
+    }
 
-            async sendPrivateMessage() {
-                if (!this.currentUser || !this.currentChatRecipient) {
-                    this.showToast('Cannot send message without a recipient.');
-                    return;
-                }
+    const messageInput = document.getElementById('privateMessageInput');
+    const content = messageInput.value.trim();
 
-                const messageInput = document.getElementById('privateMessageInput');
-                const content = messageInput.value.trim();
+    // --- HANDLE FILE UPLOAD ---
+    let fileURL = null;
+    let fileType = null;
+    let fileName = null;
+    if (this.currentPrivateChatFile) {
+        const { file, type } = this.currentPrivateChatFile;
+        fileName = file.name;
+        try {
+            // Choose folder based on type
+            let folder = 'private_chat_files';
+            if (type === 'image') folder = 'private_chat_images';
+            else if (type === 'video') folder = 'private_chat_videos';
+            // Unique filename
+            const timestamp = Date.now();
+            const firebaseFileName = `${folder}/${this.currentUser.uid}_${timestamp}_${file.name}`;
+            // Upload to Firebase Storage
+            const storageRef = storage.ref(firebaseFileName);
+            const uploadTask = storageRef.put(file);
 
-                if (!content) {
-                    this.showToast('Please type a message.');
-                    return;
-                }
+            // Show simple toast for upload progress
+            this.showToast('Uploading file for chat...');
+            await new Promise((resolve, reject) => {
+                uploadTask.on('state_changed', null, reject, resolve);
+            });
 
-                try {
-                    const conversationId = [this.currentUser.uid, this.currentChatRecipient.uid].sort().join('_');
-                    const messagesCollectionRef = db.collection('private_chats').doc(conversationId).collection('messages');
+            fileURL = await storageRef.getDownloadURL();
+            fileType = type;
+        } catch (error) {
+            this.showToast('❌ Failed to upload file.');
+            return;
+        }
+    }
 
-                    await messagesCollectionRef.add({
-                    senderId: this.currentUser.uid,
-                    senderName: this.currentUser.displayName,
-                    senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
-                    recipientId: this.currentChatRecipient.uid,
-                    content: content,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    messageInput.value = '';
-                    // If the sender replies, clear the recipient from their new messages list (if they were there)
-                    this.newPrivateMessageSenders.delete(this.currentChatRecipient.uid);
-                    this.renderNewPrivateMessagesList(); // Re-render the list
+    // Must have content or a file
+    if (!content && !fileURL) {
+        this.showToast('Please type a message or select a file.');
+        return;
+    }
 
-                    // No toast needed, messages will appear via real-time listener
-                    
-                } catch (error) {
-                    console.error('Error sending private message:', error);
-                    this.showToast('❌ Failed to send message. Please try again.');
-                }
-            }
+    try {
+        const conversationId = [this.currentUser.uid, this.currentChatRecipient.uid].sort().join('_');
+        const messagesCollectionRef = db.collection('private_chats').doc(conversationId).collection('messages');
+
+        await messagesCollectionRef.add({
+            senderId: this.currentUser.uid,
+            senderName: this.currentUser.displayName,
+            senderPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+            recipientId: this.currentChatRecipient.uid,
+            content: content,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            fileURL: fileURL,
+            fileType: fileType,
+            fileName: fileName
+        });
+
+        // Reset form
+        messageInput.value = '';
+        this.currentPrivateChatFile = null;
+        this.renderPrivateChatUploadPreview();
+
+        // Remove from new messages list if replying
+        this.newPrivateMessageSenders.delete(this.currentChatRecipient.uid);
+        this.renderNewPrivateMessagesList();
+
+    } catch (error) {
+        console.error('Error sending private message:', error);
+        this.showToast('❌ Failed to send message. Please try again.');
+    }
+}
 
             renderPrivateMessages(messageDocs) {
                 const chatMessagesDiv = document.getElementById('chatMessages');
@@ -1770,24 +1863,7 @@ const firebaseConfig = {
                     return;
                 }
 
-                chatMessagesDiv.innerHTML = messageDocs.map(doc => {
-                    const message = doc.data();
-                    const isMyMessage = message.senderId === this.currentUser.uid;
-                    const timeAgo = this.getTimeAgo(message.timestamp?.toDate() || new Date());
-
-                    return `
-                        <div class="flex ${isMyMessage ? 'justify-end' : 'justify-start'}">
-                            <div class="flex items-end ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} space-x-2 ${isMyMessage ? 'space-x-reverse' : ''}">
-                                <img src="${message.senderPhoto}" alt="${message.senderName}" class="w-8 h-8 rounded-full flex-shrink-0">
-                                <div class="${isMyMessage ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} p-3 rounded-lg max-w-[75%]">
-                                    <p class="font-medium text-sm mb-1">${isMyMessage ? 'You' : message.senderName}</p>
-                                    <p class="text-sm break-words">${message.content}</p>
-                                    <p class="text-xs text-right mt-1 ${isMyMessage ? 'text-indigo-200' : 'text-gray-400'}">${timeAgo}</p>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                
             }
 
             hidePrivateChatModal() {
