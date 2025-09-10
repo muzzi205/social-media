@@ -593,7 +593,31 @@
     </div>
 
     <script>
-        
+   async function cloudinaryUpload(file) {
+  // Set endpoint based on file type
+  const type = file.type.startsWith("video") ? "video"
+    : file.type.startsWith("image") ? "image"
+    : "auto";
+  const cloudName = "dwhep2uck";
+  const unsignedPreset = "socialhub_unsigned";
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/${type}/upload`;
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", unsignedPreset);
+
+  const res = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  if (data.secure_url) {
+    return data.secure_url;
+  } else {
+    throw new Error(data.error?.message || "Upload failed");
+  }
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyAEWurFdnvGdsbJUYCXAncijOxvgE-y2R4",
   authDomain: "socialhub-app-38104.firebaseapp.com",
@@ -1405,44 +1429,16 @@ renderPrivateChatUploadPreview() {
                 this.showToast('📹 Video selected! Ready to post.');
             }
             
-            async uploadVideo() {
-                if (!this.currentVideo) return null;
-                
-                try {
-                    // Show upload progress
-                    document.getElementById('videoUploadProgress').style.display = 'block';
-                    
-                    // Create unique filename
-                    const timestamp = Date.now();
-                    const fileName = `videos/${this.currentUser.uid}/${timestamp}_${this.currentVideo.name}`;
-                    
-                    // Upload to Firebase Storage
-                    const storageRef = storage.ref(fileName);
-                    this.uploadTask = storageRef.put(this.currentVideo);
-                    
-                    // Track upload progress
-                    this.uploadTask.on('state_changed', (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        document.getElementById('videoProgressBar').style.width = progress + '%';
-                        document.getElementById('videoProgressPercent').textContent = Math.round(progress) + '%';
-                    });
-                    
-                    // Wait for upload completion
-                    await this.uploadTask;
-                    
-                    // Get download URL
-                    const downloadURL = await storageRef.getDownloadURL();
-                    
-                    console.log('📹 Video uploaded successfully:', downloadURL);
-                    return downloadURL;
-                    
-                } catch (error) {
-                    console.error('Error uploading video:', error);
-                    this.showToast('❌ Failed to upload video. Please try again.');
-                    return null;
-                }
-            }
-            
+async uploadVideo() {
+    if (!this.currentVideo) return null;
+    try {
+        const url = await cloudinaryUpload(this.currentVideo);
+        return url;
+    } catch (error) {
+        this.showToast('❌ Failed to upload video. Please try again.');
+        return null;
+    }
+}
             removeVideo() {
                 if (this.currentVideo) {
                     URL.revokeObjectURL(document.getElementById('previewVideo').src);
@@ -1509,44 +1505,16 @@ renderPrivateChatUploadPreview() {
                 
                 this.showToast('🖼️ Image selected! Ready to post.');
             }
-
-            async uploadImage() {
-                if (!this.currentImage) return null;
-
-                try {
-                    // Show upload progress
-                    document.getElementById('imageUploadProgress').style.display = 'block';
-
-                    // Create unique filename
-                    const timestamp = Date.now();
-                    const fileName = `images/${this.currentUser.uid}/${timestamp}_${this.currentImage.name}`;
-                    
-                    // Upload to Firebase Storage
-                    const storageRef = storage.ref(fileName);
-                    this.imageUploadTask = storageRef.put(this.currentImage);
-                    
-                    // Track upload progress
-                    this.imageUploadTask.on('state_changed', (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        document.getElementById('imageProgressBar').style.width = progress + '%';
-                        document.getElementById('imageProgressPercent').textContent = Math.round(progress) + '%';
-                    });
-                    
-                    // Wait for upload completion
-                    await this.imageUploadTask;
-                    
-                    // Get download URL
-                    const downloadURL = await storageRef.getDownloadURL();
-                    
-                    console.log('🖼️ Image uploaded successfully:', downloadURL);
-                    return downloadURL;
-                    
-                } catch (error) {
-                    console.error('Error uploading image:', error);
-                    this.showToast('❌ Failed to upload image. Please try again.');
-                    return null;
-                }
-            }
+    async uploadImage() {
+    if (!this.currentImage) return null;
+    try {
+        const url = await cloudinaryUpload(this.currentImage);
+        return url;
+    } catch (error) {
+        this.showToast('❌ Failed to upload image. Please try again.');
+        return null;
+    }
+}
 
             removeImage() {
                 if (this.currentImage) {
@@ -1629,53 +1597,17 @@ renderPrivateChatUploadPreview() {
                 }
             }
             
-            async uploadFile() {
-                if (!this.currentFile) return null;
-                
-                try {
-                    // Show upload progress
-                    document.getElementById('fileUploadProgress').style.display = 'block';
-                    
-                    // Determine storage path based on file type
-                    const fileType = this.currentFile.type.split('/')[0];
-                    let folder = 'other_files';
-                    if (fileType === 'image') {
-                        folder = 'images';
-                    } else if (fileType === 'video') {
-                        folder = 'videos';
-                    }
-                    
-                    // Create unique filename
-                    const timestamp = Date.now();
-                    const fileName = `${folder}/${this.currentUser.uid}/${timestamp}_${this.currentFile.name}`;
-                    
-                    // Upload to Firebase Storage
-                    const storageRef = storage.ref(fileName);
-                    this.fileUploadTask = storageRef.put(this.currentFile);
-                    
-                    // Track upload progress
-                    this.fileUploadTask.on('state_changed', (snapshot) => {
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        document.getElementById('fileProgressBar').style.width = progress + '%';
-                        document.getElementById('fileProgressPercent').textContent = Math.round(progress) + '%';
-                    });
-                    
-                    // Wait for upload completion
-                    await this.fileUploadTask;
-                    
-                    // Get download URL
-                    const downloadURL = await storageRef.getDownloadURL();
-                    
-                    console.log('✅ File uploaded successfully:', downloadURL);
-                    return downloadURL;
-                    
-                } catch (error) {
-                    console.error('Error uploading file:', error);
-                    this.showToast('❌ Failed to upload file. Please try again.');
-                    return null;
-                }
-            }
-            
+           async uploadFile() {
+    if (!this.currentFile) return null;
+    try {
+        const url = await cloudinaryUpload(this.currentFile);
+        return url;
+    } catch (error) {
+        this.showToast('❌ Failed to upload file. Please try again.');
+        return null;
+    }
+}
+ 
             removeFile() {
                 if (this.currentFile) {
                     const fileType = this.currentFile.type.split('/')[0];
@@ -1790,35 +1722,18 @@ async sendPrivateMessage() {
     let fileURL = null;
     let fileType = null;
     let fileName = null;
-    if (this.currentPrivateChatFile) {
-        const { file, type } = this.currentPrivateChatFile;
-        fileName = file.name;
-        try {
-            // Choose folder based on type
-            let folder = 'private_chat_files';
-            if (type === 'image') folder = 'private_chat_images';
-            else if (type === 'video') folder = 'private_chat_videos';
-            // Unique filename
-            const timestamp = Date.now();
-            const firebaseFileName = `${folder}/${this.currentUser.uid}_${timestamp}_${file.name}`;
-            // Upload to Firebase Storage
-            const storageRef = storage.ref(firebaseFileName);
-            const uploadTask = storageRef.put(file);
-
-            // Show simple toast for upload progress
-            this.showToast('Uploading file for chat...');
-            await new Promise((resolve, reject) => {
-                uploadTask.on('state_changed', null, reject, resolve);
-            });
-
-            fileURL = await storageRef.getDownloadURL();
-            fileType = type;
-        } catch (error) {
-            this.showToast('❌ Failed to upload file.');
-            return;
-        }
+  if (this.currentPrivateChatFile) {
+    const { file, type } = this.currentPrivateChatFile;
+    fileName = file.name;
+    try {
+        this.showToast('Uploading file for chat...');
+        fileURL = await cloudinaryUpload(file);
+        fileType = type;
+    } catch (error) {
+        this.showToast('❌ Failed to upload file.');
+        return;
     }
-
+}
     // Must have content or a file
     if (!content && !fileURL) {
         this.showToast('Please type a message or select a file.');
@@ -1855,16 +1770,51 @@ async sendPrivateMessage() {
         this.showToast('❌ Failed to send message. Please try again.');
     }
 }
+renderPrivateMessages(messageDocs) {
+    const chatMessagesDiv = document.getElementById('chatMessages');
+    if (messageDocs.length === 0) {
+        chatMessagesDiv.innerHTML = '<div class="text-center text-gray-500 py-12"><p class="text-sm">No messages yet. Start the conversation!</p></div>';
+        return;
+    }
 
-            renderPrivateMessages(messageDocs) {
-                const chatMessagesDiv = document.getElementById('chatMessages');
-                if (messageDocs.length === 0) {
-                    chatMessagesDiv.innerHTML = '<div class="text-center text-gray-500 py-12"><p class="text-sm">No messages yet. Start the conversation!</p></div>';
-                    return;
-                }
+    chatMessagesDiv.innerHTML = messageDocs.map(doc => {
+        const message = doc.data();
+        const isMyMessage = message.senderId === this.currentUser.uid;
+        const timeAgo = this.getTimeAgo(message.timestamp?.toDate() || new Date());
 
-                
+        // FILE DISPLAY
+        let fileHtml = '';
+        if (message.fileURL && message.fileType) {
+            if (message.fileType === 'image') {
+                fileHtml = `<img src="${message.fileURL}" class="video-preview w-32 h-32 object-contain rounded-lg mx-auto mt-2" alt="${message.fileName || ''}">`;
+            } else if (message.fileType === 'video') {
+                fileHtml = `<video src="${message.fileURL}" class="video-preview w-48 h-32 rounded-lg mx-auto mt-2" controls></video>`;
+            } else {
+                fileHtml = `<div class="p-2 bg-gray-800 rounded text-gray-300 text-center mt-2">
+                    <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <p>${message.fileName || 'Attached File'}</p>
+                    <a href="${message.fileURL}" target="_blank" class="text-indigo-400 underline block mt-1">Download</a>
+                </div>`;
             }
+        }
+
+        return `
+            <div class="flex ${isMyMessage ? 'justify-end' : 'justify-start'}">
+                <div class="flex items-end ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} space-x-2 ${isMyMessage ? 'space-x-reverse' : ''}">
+                    <img src="${message.senderPhoto}" alt="${message.senderName}" class="w-8 h-8 rounded-full flex-shrink-0">
+                    <div class="${isMyMessage ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} p-3 rounded-lg max-w-[75%]">
+                        <p class="font-medium text-sm mb-1">${isMyMessage ? 'You' : message.senderName}</p>
+                        ${message.content ? `<p class="text-sm break-words">${message.content}</p>` : ''}
+                        ${fileHtml}
+                        <p class="text-xs text-right mt-1 ${isMyMessage ? 'text-indigo-200' : 'text-gray-400'}">${timeAgo}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
             hidePrivateChatModal() {
                 document.getElementById('privateMessageModal').classList.remove('active');
