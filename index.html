@@ -679,25 +679,7 @@ const firebaseConfig = {
 
             setupAuthListeners() {
                 auth.onAuthStateChanged(async (user) => {
- if (user) {
-    // Restrict to @unilorin.edu.ng
-    if (!user.email.endsWith('@unilorin.edu.ng')) {
-        this.showToast('❌ Unauthorized email. Signing out.');
-        await auth.signOut();
-        return;
-    }
-
-    // Require email verification
-    if (!user.emailVerified) {
-        this.showToast('⚠️ Please verify your email before accessing.');
-        await auth.signOut();
-        return;
-    }
-
-    this.currentUser = user;
-    await this.initializeUser();
-    this.showMainApp();
-
+                    if (user) {
                         this.currentUser = user;
                         await this.initializeUser();
                         this.showMainApp();
@@ -710,7 +692,6 @@ const firebaseConfig = {
                         this.showAuthModal();
                         this.cleanup();
                     }
-               
                 });
             }
 
@@ -1247,21 +1228,15 @@ renderPrivateChatUploadPreview() {
             }
 
             // Authentication methods
-async signUp() {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value;
-    const displayName = document.getElementById('displayNameInput').value.trim();
+            async signUp() {
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
+                const displayName = document.getElementById('displayNameInput').value.trim();
 
-    if (!email || !password || !displayName) {
-        this.showToast('⚠️ Please fill all fields');
-        return;
-    }
-
-    // ✅ Restrict to @unilorin.edu.ng only
-    if (!email.endsWith('@unilorin.edu.ng')) {
-        this.showToast('❌ Only @unilorin.edu.ng emails are allowed');
-        return;
-    }
+                if (!email || !password || !displayName) {
+                    this.showToast('⚠️ Please fill all fields');
+                    return;
+                }
 
                 // Check if display name already exists
                 const usersRef = db.collection('users');
@@ -1273,45 +1248,30 @@ async signUp() {
                 }
 
                 try {
- const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-await userCredential.user.updateProfile({
-    displayName: displayName,
-    photoURL: this.generateAvatar(displayName)
-});
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({
+                        displayName: displayName,
+                        photoURL: this.generateAvatar(displayName)
+                    });
+                    // Also store display name in Firestore user document
+                    await db.collection('users').doc(userCredential.user.uid).set({
+                        displayName: displayName
+                    }, { merge: true });
 
-// Send verification email
-await userCredential.user.sendEmailVerification();
-
-this.showToast('📧 Verification email sent! Please check your inbox.');
-
-// Optional: save display name in Firestore
-await db.collection('users').doc(userCredential.user.uid).set({
-    displayName: displayName
-}, { merge: true });
-
-// Sign out until they verify
-await auth.signOut();
-
+                    this.showToast('✅ Account created successfully!');
                 } catch (error) {
                     this.showToast(`❌ ${error.message}`);
                 }
             }
 
-          async signIn() {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value;
+            async signIn() {
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
 
-    if (!email || !password) {
-        this.showToast('⚠️ Please enter email and password');
-        return;
-    }
-
-    // ✅ Restrict to @unilorin.edu.ng only
-    if (!email.endsWith('@unilorin.edu.ng')) {
-        this.showToast('❌ Only @unilorin.edu.ng emails are allowed');
-        return;
-    }
-
+                if (!email || !password) {
+                    this.showToast('⚠️ Please enter email and password');
+                    return;
+                }
 
                 try {
                     await auth.signInWithEmailAndPassword(email, password);
