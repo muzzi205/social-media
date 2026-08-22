@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -106,6 +107,46 @@
         
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        
+        .video-upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: rgba(55, 65, 81, 0.3);
+        }
+        
+        .video-upload-area:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .video-upload-area.drag-over {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        .video-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            background: #000;
+        }
+        
+        .upload-progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 0.3s ease;
         }
     </style>
 </head>
@@ -202,9 +243,51 @@
                             <textarea id="postInput" placeholder="What's happening? Share with everyone online!" rows="3" class="flex-1 bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400 resize-none"></textarea>
                         </div>
                         
+                        <!-- Video Upload Section -->
+                        <div id="videoUploadSection" class="mb-4" style="display: none;">
+                            <div id="videoUploadArea" class="video-upload-area">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <p class="text-gray-400 mb-2">Drag and drop a video here or click to select</p>
+                                    <p class="text-xs text-gray-500">MP4, MOV, AVI files up to 50MB</p>
+                                    <input type="file" id="videoInput" accept="video/*" class="hidden">
+                                </div>
+                            </div>
+                            
+                            <!-- Video Preview -->
+                            <div id="videoPreview" class="mt-4" style="display: none;">
+                                <video id="previewVideo" class="video-preview w-full" controls></video>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span id="videoFileName" class="text-sm text-gray-400"></span>
+                                    <button id="removeVideoBtn" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Progress -->
+                            <div id="uploadProgress" class="mt-4" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">Uploading video...</span>
+                                    <span id="progressPercent" class="text-sm text-indigo-400">0%</span>
+                                </div>
+                                <div class="upload-progress">
+                                    <div id="progressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="flex items-center justify-between">
-                            <div class="text-sm text-gray-400">
-                                Post will be visible to all <span id="activeUsers">0</span> online users
+                            <div class="flex items-center space-x-4">
+                                <div class="text-sm text-gray-400">
+                                    Post will be visible to all <span id="activeUsers">0</span> online users
+                                </div>
+                                <button id="addVideoBtn" class="flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span>Add Video</span>
+                                </button>
                             </div>
                             <button id="createPostBtn" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">
                                 Post Live
@@ -272,12 +355,22 @@ const firebaseConfig = {
         const db = firebase.firestore();
         const auth = firebase.auth();
         const realtimeDb = firebase.database();
+        const storage = firebase.storage();
+        
+        // Test Firebase connectivity
+        console.log('🔥 Firebase initialized successfully');
+        console.log('📊 Firestore:', db ? '✅ Connected' : '❌ Failed');
+        console.log('🔐 Auth:', auth ? '✅ Connected' : '❌ Failed');
+        console.log('⚡ Realtime DB:', realtimeDb ? '✅ Connected' : '❌ Failed');
+        console.log('📁 Storage:', storage ? '✅ Connected' : '❌ Failed');
 
         class RealSocialHub {
             constructor() {
                 this.currentUser = null;
                 this.unsubscribes = [];
                 this.presenceRef = null;
+                this.currentVideo = null;
+                this.uploadTask = null;
                 this.init();
             }
 
@@ -410,37 +503,74 @@ const firebaseConfig = {
             async createPost() {
                 const input = document.getElementById('postInput');
                 const content = input.value.trim();
+                const createBtn = document.getElementById('createPostBtn');
 
-                if (!content) {
-                    this.showToast('⚠️ Please write something!');
+                if (!content && !this.currentVideo) {
+                    this.showToast('⚠️ Please write something or add a video!');
                     return;
                 }
 
+                // Disable button and show loading
+                createBtn.disabled = true;
+                createBtn.innerHTML = '<div class="loading"></div> Posting...';
+
                 try {
-                    // Add post to Firestore
-                    await db.collection('posts').add({
+                    let videoURL = null;
+                    
+                    // Upload video if one is selected
+                    if (this.currentVideo) {
+                        this.showToast('📹 Uploading video...');
+                        videoURL = await this.uploadVideo();
+                        if (!videoURL) {
+                            throw new Error('Video upload failed');
+                        }
+                    }
+
+                    // Create post data
+                    const postData = {
                         uid: this.currentUser.uid,
                         author: this.currentUser.displayName,
                         authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
-                        content: content,
+                        content: content || '',
                         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                         likes: [],
                         likeCount: 0,
-                        comments: []
-                    });
+                        comments: [],
+                        hasVideo: !!videoURL,
+                        videoURL: videoURL
+                    };
+
+                    // Add post to Firestore
+                    await db.collection('posts').add(postData);
+
+                    // Create activity message
+                    let activityMsg;
+                    if (videoURL && content) {
+                        activityMsg = `${this.currentUser.displayName} posted a video: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`;
+                    } else if (videoURL) {
+                        activityMsg = `${this.currentUser.displayName} shared a video`;
+                    } else {
+                        activityMsg = `${this.currentUser.displayName} posted: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`;
+                    }
 
                     // Add activity
                     await db.collection('activity').add({
                         uid: this.currentUser.uid,
-                        action: `${this.currentUser.displayName} posted: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                        action: activityMsg,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
+                    // Reset form
                     input.value = '';
+                    this.hideVideoUpload();
                     this.showToast('✅ Posted live to all users!');
                 } catch (error) {
                     console.error('Error creating post:', error);
-                    this.showToast('❌ Error posting. Try again.');
+                    this.showToast('❌ Error posting. Please try again.');
+                } finally {
+                    // Re-enable button
+                    createBtn.disabled = false;
+                    createBtn.innerHTML = 'Post Live';
                 }
             }
 
@@ -493,6 +623,8 @@ const firebaseConfig = {
                     const timeAgo = this.getTimeAgo(timestamp);
                     const isLiked = post.likes?.includes(this.currentUser.uid);
                     const isMyPost = post.uid === this.currentUser.uid;
+                    const hasVideo = post.hasVideo && post.videoURL;
+                    const commentsCount = post.comments?.length || 0;
 
                     return `
                         <div class="post-card rounded-xl">
@@ -505,22 +637,75 @@ const firebaseConfig = {
                                             <p class="text-gray-400 text-sm">${timeAgo}</p>
                                         </div>
                                     </div>
-                                    <div class="text-xs text-green-400">🟢 LIVE</div>
+                                    <div class="flex items-center space-x-2">
+                                        ${hasVideo ? '<span class="text-xs bg-purple-600 px-2 py-1 rounded-full">📹 VIDEO</span>' : ''}
+                                        <div class="text-xs text-green-400">🟢 LIVE</div>
+                                    </div>
                                 </div>
                                 
-                                <p class="text-gray-300 mb-4">${post.content}</p>
+                                ${post.content ? `<p class="text-gray-300 mb-4">${post.content}</p>` : ''}
                                 
-                                <div class="flex items-center justify-between">
-                                    <button class="like-btn flex items-center space-x-2 ${isLiked ? 'text-red-400' : 'text-gray-400'} hover:text-red-300 transition-colors" 
-                                            onclick="socialHub.toggleLike('${postId}')">
-                                        <svg class="w-5 h-5" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                                        </svg>
-                                        <span>${post.likeCount || 0} ${post.likeCount === 1 ? 'like' : 'likes'}</span>
-                                    </button>
+                                ${hasVideo ? `
+                                    <div class="mb-4">
+                                        <video class="w-full max-h-96 bg-black rounded-lg" controls>
+                                            <source src="${post.videoURL}" type="video/mp4">
+                                            <p class="text-gray-400 p-4">Your browser doesn't support video playback.</p>
+                                        </video>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="like-btn flex items-center space-x-2 ${isLiked ? 'text-red-400' : 'text-gray-400'} hover:text-red-300 transition-colors" 
+                                                onclick="socialHub.toggleLike('${postId}')">
+                                            <svg class="w-5 h-5" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                            </svg>
+                                            <span>${post.likeCount || 0}</span>
+                                        </button>
+                                        
+                                        <button class="comment-btn flex items-center space-x-2 text-gray-400 hover:text-blue-300 transition-colors" 
+                                                onclick="socialHub.toggleComments('${postId}')">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                            </svg>
+                                            <span>${commentsCount} replies</span>
+                                        </button>
+                                    </div>
                                     
                                     <div class="text-sm text-gray-500">
                                         Posted to ${document.getElementById('userCount').textContent} online users
+                                    </div>
+                                </div>
+                                
+                                <!-- Comments Section -->
+                                <div id="comments-${postId}" class="comments-section" style="display: none;">
+                                    <div class="border-t border-gray-700 pt-4 mt-4">
+                                        <!-- Comment Input -->
+                                        <div class="flex items-center space-x-3 mb-4">
+                                            <img src="${this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName)}" alt="You" class="w-8 h-8 rounded-full">
+                                            <input type="text" id="comment-input-${postId}" placeholder="Write a reply..." 
+                                                   class="flex-1 bg-gray-800 border border-gray-700 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                            <button onclick="socialHub.addComment('${postId}')" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full text-sm transition-colors">
+                                                Reply
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Comments List -->
+                                        <div id="comments-list-${postId}" class="space-y-3">
+                                            ${post.comments?.map(comment => `
+                                                <div class="flex items-start space-x-3">
+                                                    <img src="${comment.authorPhoto}" alt="${comment.author}" class="w-7 h-7 rounded-full">
+                                                    <div class="flex-1">
+                                                        <div class="bg-gray-800 rounded-lg px-3 py-2">
+                                                            <p class="font-medium text-sm text-white">${comment.author}</p>
+                                                            <p class="text-gray-300 text-sm">${comment.content}</p>
+                                                        </div>
+                                                        <p class="text-xs text-gray-500 mt-1 ml-3">${this.getTimeAgo(comment.timestamp?.toDate() || new Date())}</p>
+                                                    </div>
+                                                </div>
+                                            `).join('') || '<p class="text-gray-500 text-sm text-center py-2">No replies yet. Be the first!</p>'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -664,6 +849,159 @@ const firebaseConfig = {
                 return date.toLocaleDateString();
             }
 
+            // Video Upload Methods
+            showVideoUpload() {
+                document.getElementById('videoUploadSection').style.display = 'block';
+                document.getElementById('addVideoBtn').style.display = 'none';
+            }
+            
+            hideVideoUpload() {
+                document.getElementById('videoUploadSection').style.display = 'none';
+                document.getElementById('addVideoBtn').style.display = 'block';
+                this.resetVideoUpload();
+            }
+            
+            resetVideoUpload() {
+                document.getElementById('videoUploadArea').style.display = 'block';
+                document.getElementById('videoPreview').style.display = 'none';
+                document.getElementById('uploadProgress').style.display = 'none';
+                document.getElementById('videoInput').value = '';
+                this.currentVideo = null;
+                if (this.uploadTask) {
+                    this.uploadTask.cancel();
+                    this.uploadTask = null;
+                }
+            }
+            
+            validateVideoFile(file) {
+                const maxSize = 50 * 1024 * 1024; // 50MB
+                const allowedTypes = ['video/mp4', 'video/mov', 'video/avi', 'video/webm'];
+                
+                if (!allowedTypes.includes(file.type)) {
+                    this.showToast('❌ Please select a valid video file (MP4, MOV, AVI, WEBM)');
+                    return false;
+                }
+                
+                if (file.size > maxSize) {
+                    this.showToast('❌ Video file too large. Please select a file under 50MB');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            handleVideoSelection(file) {
+                if (!this.validateVideoFile(file)) return;
+                
+                this.currentVideo = file;
+                
+                // Create preview URL
+                const videoUrl = URL.createObjectURL(file);
+                const previewVideo = document.getElementById('previewVideo');
+                previewVideo.src = videoUrl;
+                
+                // Update UI
+                document.getElementById('videoFileName').textContent = file.name;
+                document.getElementById('videoUploadArea').style.display = 'none';
+                document.getElementById('videoPreview').style.display = 'block';
+                
+                this.showToast('📹 Video selected! Ready to post.');
+            }
+            
+            async uploadVideo() {
+                if (!this.currentVideo) return null;
+                
+                try {
+                    // Show upload progress
+                    document.getElementById('uploadProgress').style.display = 'block';
+                    
+                    // Create unique filename
+                    const timestamp = Date.now();
+                    const fileName = `videos/${this.currentUser.uid}/${timestamp}_${this.currentVideo.name}`;
+                    
+                    // Upload to Firebase Storage
+                    const storageRef = storage.ref(fileName);
+                    this.uploadTask = storageRef.put(this.currentVideo);
+                    
+                    // Track upload progress
+                    this.uploadTask.on('state_changed', (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        document.getElementById('progressBar').style.width = progress + '%';
+                        document.getElementById('progressPercent').textContent = Math.round(progress) + '%';
+                    });
+                    
+                    // Wait for upload completion
+                    await this.uploadTask;
+                    
+                    // Get download URL
+                    const downloadURL = await storageRef.getDownloadURL();
+                    
+                    console.log('📹 Video uploaded successfully:', downloadURL);
+                    return downloadURL;
+                    
+                } catch (error) {
+                    console.error('Error uploading video:', error);
+                    this.showToast('❌ Failed to upload video. Please try again.');
+                    return null;
+                }
+            }
+            
+            removeVideo() {
+                if (this.currentVideo) {
+                    URL.revokeObjectURL(document.getElementById('previewVideo').src);
+                }
+                this.resetVideoUpload();
+                this.showToast('🗑️ Video removed');
+            }
+            
+            // Comments functionality
+            toggleComments(postId) {
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                if (commentsSection.style.display === 'none') {
+                    commentsSection.style.display = 'block';
+                } else {
+                    commentsSection.style.display = 'none';
+                }
+            }
+            
+            async addComment(postId) {
+                const input = document.getElementById(`comment-input-${postId}`);
+                const content = input.value.trim();
+                
+                if (!content) {
+                    this.showToast('⚠️ Please write a reply!');
+                    return;
+                }
+                
+                try {
+                    const comment = {
+                        uid: this.currentUser.uid,
+                        author: this.currentUser.displayName,
+                        authorPhoto: this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName),
+                        content: content,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    // Add comment to post
+                    await db.collection('posts').doc(postId).update({
+                        comments: firebase.firestore.FieldValue.arrayUnion(comment)
+                    });
+                    
+                    // Add activity
+                    await db.collection('activity').add({
+                        uid: this.currentUser.uid,
+                        action: `${this.currentUser.displayName} replied to a post: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    input.value = '';
+                    this.showToast('✅ Reply posted!');
+                } catch (error) {
+                    console.error('Error adding comment:', error);
+                    this.showToast('❌ Error posting reply. Try again.');
+                }
+            }
+
             showToast(message) {
                 const toast = document.createElement('div');
                 toast.className = 'toast';
@@ -701,6 +1039,55 @@ const firebaseConfig = {
                     if (e.key === 'Enter' && e.ctrlKey) {
                         this.createPost();
                     }
+                });
+                
+                // Video upload
+                document.getElementById('addVideoBtn').addEventListener('click', () => this.showVideoUpload());
+                document.getElementById('removeVideoBtn').addEventListener('click', () => this.removeVideo());
+                
+                // Video input handling
+                const videoInput = document.getElementById('videoInput');
+                videoInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleVideoSelection(e.target.files[0]);
+                    }
+                });
+                
+                // Drag and drop functionality
+                const dropArea = document.getElementById('videoUploadArea');
+                
+                // Prevent default behavior to allow drop
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+                
+                // Visual feedback for drag events
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, () => {
+                        dropArea.classList.add('drag-over');
+                    }, false);
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, () => {
+                        dropArea.classList.remove('drag-over');
+                    }, false);
+                });
+                
+                // Handle drop
+                dropArea.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleVideoSelection(file);
+                    }
+                }, false);
+                
+                // Make the entire dropArea clickable
+                dropArea.addEventListener('click', () => {
+                    videoInput.click();
                 });
             }
         }
