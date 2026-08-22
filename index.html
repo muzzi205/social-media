@@ -245,6 +245,14 @@
                         
                         <!-- Video Upload Section -->
                         <div id="videoUploadSection" class="mb-4" style="display: none;">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-gray-300">Add Video to Post</h4>
+                                <button id="hideVideoBtn" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide video upload">
+                                    <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <div id="videoUploadArea" class="video-upload-area">
                                 <div class="flex flex-col items-center">
                                     <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -681,6 +689,14 @@ const firebaseConfig = {
                                 <!-- Comments Section -->
                                 <div id="comments-${postId}" class="comments-section" style="display: none;">
                                     <div class="border-t border-gray-700 pt-4 mt-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-sm font-medium text-gray-300">Replies</h4>
+                                            <button onclick="socialHub.toggleComments('${postId}')" class="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 rounded-full w-10 h-10 flex items-center justify-center" title="Hide replies">
+                                                <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
                                         <!-- Comment Input -->
                                         <div class="flex items-center space-x-3 mb-4">
                                             <img src="${this.currentUser.photoURL || this.generateAvatar(this.currentUser.displayName)}" alt="You" class="w-8 h-8 rounded-full">
@@ -1044,6 +1060,7 @@ const firebaseConfig = {
                 // Video upload
                 document.getElementById('addVideoBtn').addEventListener('click', () => this.showVideoUpload());
                 document.getElementById('removeVideoBtn').addEventListener('click', () => this.removeVideo());
+                document.getElementById('hideVideoBtn').addEventListener('click', () => this.hideVideoUpload());
                 
                 // Video input handling
                 const videoInput = document.getElementById('videoInput');
