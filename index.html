@@ -383,7 +383,10 @@
             <div id="profileUploadProgress" class="mb-4" style="display: none;">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-sm text-gray-400">Uploading...</span>
-                    <span id="profileProgressPercent" class="text-sm text-indigo-400">0%</span>
+                    <div class="flex items-center space-x-2">
+                        <span id="profileProgressPercent" class="text-sm text-indigo-400">0%</span>
+                        <button id="cancelProfileUploadBtn" onclick="socialHub.cancelProfileUpload()" class="text-red-400 hover:text-red-300 text-xs">Cancel</button>
+                    </div>
                 </div>
                 <div class="w-full bg-gray-700 rounded-full h-2">
                     <div id="profileProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all" style="width: 0%"></div>
@@ -433,6 +436,7 @@ const firebaseConfig = {
                 this.presenceRef = null;
                 this.currentVideo = null;
                 this.uploadTask = null;
+                this.profileUploadTask = null;
                 this.init();
             }
 
@@ -1134,7 +1138,7 @@ const firebaseConfig = {
                 return true;
             }
             
-            // Image compression utility
+            // Enhanced image compression utility with progressive optimization
             compressImage(file) {
                 return new Promise((resolve, reject) => {
                     const canvas = document.createElement('canvas');
@@ -1142,19 +1146,19 @@ const firebaseConfig = {
                     const img = new Image();
                     
                     img.onload = () => {
-                        // Target dimensions for profile pictures (400x400 max)
-                        const maxSize = 400;
+                        // Optimized dimensions for profile pictures - smaller for faster processing
+                        const maxSize = 200; // Reduced from 250 for faster processing
                         let { width, height } = img;
                         
                         // Calculate new dimensions maintaining aspect ratio
                         if (width > height) {
                             if (width > maxSize) {
-                                height = (height * maxSize) / width;
+                                height = Math.round((height * maxSize) / width);
                                 width = maxSize;
                             }
                         } else {
                             if (height > maxSize) {
-                                width = (width * maxSize) / height;
+                                width = Math.round((width * maxSize) / height);
                                 height = maxSize;
                             }
                         }
@@ -1163,22 +1167,34 @@ const firebaseConfig = {
                         canvas.width = width;
                         canvas.height = height;
                         
+                        // Enhanced rendering with image smoothing
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
                         // Draw and compress image
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Convert to blob with compression
+                        // Smart quality based on file size
+                        let quality = 0.8; // Start with higher quality
+                        if (file.size > 2 * 1024 * 1024) quality = 0.7; // 2MB+
+                        if (file.size > 5 * 1024 * 1024) quality = 0.6; // 5MB+
+                        
+                        // Convert to blob with optimized compression
                         canvas.toBlob((blob) => {
                             if (blob) {
                                 // Create a File object from the blob
-                                const compressedFile = new File([blob], file.name, {
-                                    type: 'image/jpeg',
-                                    lastModified: Date.now()
-                                });
+                                const compressedFile = new File([blob], 
+                                    file.name.replace(/\.[^/.]+$/, '.jpg'), // Always use .jpg extension
+                                    {
+                                        type: 'image/jpeg',
+                                        lastModified: Date.now()
+                                    }
+                                );
                                 resolve(compressedFile);
                             } else {
                                 reject(new Error('Failed to compress image'));
                             }
-                        }, 'image/jpeg', 0.8); // 80% quality
+                        }, 'image/jpeg', quality);
                     };
                     
                     img.onerror = () => reject(new Error('Failed to load image'));
@@ -1228,6 +1244,32 @@ const firebaseConfig = {
                 updateBtn.disabled = true;
                 updateBtn.textContent = 'Uploading...';
                 
+                // OPTIMISTIC UPDATE: Immediately update UI with selected image for instant feedback
+                const tempImageURL = URL.createObjectURL(this.selectedProfileImage);
+                const originalURLs = {
+                    profileAvatar: document.getElementById('profileAvatar').src,
+                    currentUserAvatar: document.getElementById('currentUserAvatar').src,
+                    postCreatorAvatar: document.getElementById('postCreatorAvatar').src
+                };
+                
+                // Apply optimistic updates immediately
+                document.getElementById('profileAvatar').src = tempImageURL;
+                document.getElementById('currentUserAvatar').src = tempImageURL;
+                document.getElementById('postCreatorAvatar').src = tempImageURL;
+                
+                // Add visual indicator that upload is in progress
+                const avatarElements = [
+                    document.getElementById('profileAvatar'),
+                    document.getElementById('currentUserAvatar')
+                ];
+                
+                avatarElements.forEach(el => {
+                    el.style.filter = 'brightness(0.7)';
+                    el.style.border = '2px solid #6366f1';
+                });
+                
+                this.showToast('📷 Updating profile picture...');
+                
                 try {
                     // Show upload progress
                     document.getElementById('profileUploadProgress').style.display = 'block';
@@ -1236,19 +1278,66 @@ const firebaseConfig = {
                     const timestamp = Date.now();
                     const fileName = `profile-pictures/${this.currentUser.uid}/${timestamp}_${this.selectedProfileImage.name}`;
                     
-                    // Upload to Firebase Storage
+                    // Upload to Firebase Storage with optimizations
                     const storageRef = storage.ref(fileName);
-                    const uploadTask = storageRef.put(this.selectedProfileImage);
-                    
-                    // Track upload progress
-                    uploadTask.on('state_changed', (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        document.getElementById('profileProgressBar').style.width = progress + '%';
-                        document.getElementById('profileProgressPercent').textContent = Math.round(progress) + '%';
+                    this.profileUploadTask = storageRef.put(this.selectedProfileImage, {
+                        cacheControl: 'public,max-age=3600', // Cache for 1 hour
+                        customMetadata: {
+                            'uploadedBy': this.currentUser.uid,
+                            'compressed': 'true'
+                        }
                     });
                     
+                    // Enhanced upload progress tracking with time estimation
+                    let startTime = Date.now();
+                    this.profileUploadTask.on('state_changed', 
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            const currentTime = Date.now();
+                            const elapsedTime = (currentTime - startTime) / 1000; // seconds
+                            
+                            // Update progress bar and percentage
+                            document.getElementById('profileProgressBar').style.width = progress + '%';
+                            document.getElementById('profileProgressPercent').textContent = Math.round(progress) + '%';
+                            
+                            // Calculate and show estimated time remaining
+                            if (progress > 5) { // Only show estimate after 5% to avoid wild estimates
+                                const estimatedTotalTime = (elapsedTime / progress) * 100;
+                                const remainingTime = Math.max(0, estimatedTotalTime - elapsedTime);
+                                
+                                let timeText;
+                                if (remainingTime < 1) {
+                                    timeText = 'Almost done...';
+                                } else if (remainingTime < 60) {
+                                    timeText = `${Math.round(remainingTime)}s remaining`;
+                                } else {
+                                    timeText = `${Math.round(remainingTime / 60)}m remaining`;
+                                }
+                                
+                                // Update the uploading text with time estimate
+                                document.querySelector('#profileUploadProgress .text-gray-400').textContent = `Uploading... ${timeText}`;
+                            }
+                            
+                            // Show upload speed
+                            const bytesPerSecond = snapshot.bytesTransferred / elapsedTime;
+                            const speedText = this.formatUploadSpeed(bytesPerSecond);
+                            document.getElementById('profileProgressPercent').textContent = `${Math.round(progress)}% (${speedText})`;
+                        },
+                        (error) => {
+                            // Handle upload errors - revert optimistic updates
+                            console.error('Upload error:', error);
+                            this.revertOptimisticUpdates(originalURLs, avatarElements);
+                            
+                            if (error.code === 'storage/canceled') {
+                                this.showToast('🚫 Upload cancelled');
+                            } else {
+                                this.showToast('❌ Upload failed. Please try again.');
+                            }
+                        }
+                    );
+                    
                     // Wait for upload completion
-                    await uploadTask;
+                    await this.profileUploadTask;
                     
                     // Get download URL
                     const downloadURL = await storageRef.getDownloadURL();
@@ -1270,11 +1359,18 @@ const firebaseConfig = {
                         });
                     }
                     
-                    // Update UI elements
-                    const newPhotoURL = downloadURL;
-                    document.getElementById('profileAvatar').src = newPhotoURL;
-                    document.getElementById('currentUserAvatar').src = newPhotoURL;
-                    document.getElementById('postCreatorAvatar').src = newPhotoURL;
+                    // Replace optimistic update with final URL and remove visual indicators
+                    document.getElementById('profileAvatar').src = downloadURL;
+                    document.getElementById('currentUserAvatar').src = downloadURL;
+                    document.getElementById('postCreatorAvatar').src = downloadURL;
+                    
+                    avatarElements.forEach(el => {
+                        el.style.filter = 'none';
+                        el.style.border = 'none';
+                    });
+                    
+                    // Clean up temporary URL
+                    URL.revokeObjectURL(tempImageURL);
                     
                     // Add activity
                     await db.collection('activity').add({
@@ -1290,11 +1386,68 @@ const firebaseConfig = {
                     
                 } catch (error) {
                     console.error('Error updating profile picture:', error);
+                    
+                    // Revert optimistic updates on error
+                    this.revertOptimisticUpdates(originalURLs, avatarElements);
+                    URL.revokeObjectURL(tempImageURL);
+                    
                     this.showToast('❌ Failed to update profile picture. Please try again.');
                 } finally {
                     updateBtn.disabled = false;
                     updateBtn.textContent = 'Update Picture';
                 }
+            }
+            
+            // Cancel profile upload method
+            cancelProfileUpload() {
+                if (this.profileUploadTask) {
+                    this.profileUploadTask.cancel();
+                    this.profileUploadTask = null;
+                    this.showToast('🚫 Upload cancelled');
+                }
+            }
+            
+            // Retry profile upload with exponential backoff
+            async retryProfileUpload(maxRetries = 3) {
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        this.showToast(`🔄 Retry attempt ${attempt}/${maxRetries}`);
+                        await this.updateProfilePicture();
+                        return; // Success, exit retry loop
+                    } catch (error) {
+                        console.error(`Upload attempt ${attempt} failed:`, error);
+                        if (attempt === maxRetries) {
+                            this.showToast('❌ All retry attempts failed. Please check your connection and try again.');
+                            return;
+                        }
+                        // Exponential backoff: wait 2^attempt seconds
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+            
+            // Helper method to format upload speed
+            formatUploadSpeed(bytesPerSecond) {
+                if (bytesPerSecond < 1024) {
+                    return `${Math.round(bytesPerSecond)} B/s`;
+                } else if (bytesPerSecond < 1024 * 1024) {
+                    return `${Math.round(bytesPerSecond / 1024)} KB/s`;
+                } else {
+                    return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
+                }
+            }
+            
+            // Helper method to revert optimistic updates
+            revertOptimisticUpdates(originalURLs, avatarElements) {
+                document.getElementById('profileAvatar').src = originalURLs.profileAvatar;
+                document.getElementById('currentUserAvatar').src = originalURLs.currentUserAvatar;
+                document.getElementById('postCreatorAvatar').src = originalURLs.postCreatorAvatar;
+                
+                avatarElements.forEach(el => {
+                    el.style.filter = 'none';
+                    el.style.border = 'none';
+                });
             }
 
             setupEventListeners() {
